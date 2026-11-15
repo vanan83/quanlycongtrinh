@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.15-3';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.15-4';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -1379,9 +1379,11 @@ function openLocal(id){
   var path = localPath(p);
   if (!p.folder_name) toast('Bấm “Đồng bộ Drive” một lần để lấy đúng tên thư mục.', 'err');
   if (localMode() === 'open'){
+    // Máy chưa cài "Mở 1 chạm" thì trình duyệt im lặng không làm gì -> chép sẵn đường dẫn làm dự phòng.
     var a = document.createElement('a');
     a.href = 'qlct-open:' + encodeURIComponent(path);
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    copyText(path, 'Đang mở thư mục… Không thấy Explorer mở ra thì máy chưa cài “Mở 1 chạm” — đường dẫn đã chép sẵn, dán vào Explorer (Win+E, Ctrl+L, Ctrl+V).');
     return;
   }
   copyText(path, 'Đã chép đường dẫn. Mở Explorer (Win+E), bấm Ctrl+L, dán Ctrl+V, Enter.');
