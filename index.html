@@ -44,7 +44,9 @@
       <div class="txt"><b>Công Trình</b><span id="verLabel"></span></div>
     </div>
     <button class="navbtn active admin-only" data-page="dashboard"><i class="ic">▦</i><span class="lb">Tổng quan</span></button>
-    <button class="navbtn" data-page="work"><i class="ic">☰</i><span class="lb">Công việc</span></button>
+    <div class="navsec">Công việc</div>
+    <div id="navWork" class="navgroup"></div>
+    <div class="navsec admin-only">Quản lý</div>
     <button class="navbtn admin-only" data-page="arisings"><i class="ic">±</i><span class="lb">Phát sinh</span><span class="navbadge" id="arBadge"></span></button>
     <button class="navbtn" data-page="area"><i class="ic">⌗</i><span class="lb">Tính diện tích</span></button>
     <button class="navbtn admin-only" data-page="partners"><i class="ic">☺</i><span class="lb">Đối tác</span></button>
@@ -115,7 +117,7 @@
     <!-- ------------------------------------------------------- CÔNG VIỆC -->
     <section class="page" id="page-work">
       <div class="phead">
-        <div><h1>Công việc</h1>
+        <div><h1 id="wkTitle">Công việc</h1>
           <p>Danh sách công trình theo thư mục Google Drive — nhập diện tích, tình trạng, phát sinh</p></div>
         <div class="grow"></div>
         <a class="btn" id="wkFolder" target="_blank" rel="noopener">📁 Mở thư mục Drive</a>
@@ -124,7 +126,6 @@
       <div class="toolbar">
         <input type="text" class="grow" id="wkSearch" placeholder="Tìm công trình, đối tác, ghi chú…"
                oninput="renderWork()">
-        <select id="wkCat" style="width:auto" onchange="renderWork()"></select>
         <select id="wkFilter" style="width:auto" onchange="renderWork()">
           <option value="">Tất cả</option>
           <option value="noarea">Chưa nhập diện tích</option>

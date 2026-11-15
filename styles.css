@@ -286,3 +286,16 @@ tbody tr.gone td{color:#9AA7B6}
 /* Bảng nhỏ trong hộp thoại và trang Thiết lập: tiêu đề nhạt, không chiếm sự chú ý */
 .dlg thead th,.panel thead th{background:#EEF3FA;color:#2A4A75;border-bottom:2px solid #D3DFEE;padding:10px 12px;font-size:11.5px}
 .dlg thead th:hover,.panel thead th:hover{background:#E2EAF6;color:var(--navy)}
+
+/* ============================================================ NHÓM TAB CÔNG VIỆC (theo loại việc) */
+.navsec{font-size:10.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#7F95B3;
+  padding:12px 12px 4px}
+.navgroup{display:flex;flex-direction:column;gap:2px}
+.navbtn .navcount{margin-left:auto;font-size:11px;font-weight:700;min-width:24px;text-align:center;
+  padding:1px 7px;border-radius:999px;background:rgba(255,255,255,.1);color:#D5E1F0}
+.navbtn.active .navcount{background:var(--gold);color:var(--navy)}
+@media (max-width:720px){
+  .navsec{display:none}
+  .navgroup{flex-direction:row;gap:6px}
+  .navbtn .navcount{margin-left:4px}
+}

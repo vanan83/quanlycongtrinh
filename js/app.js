@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.15-5';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.15-6';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -230,7 +230,7 @@ function boot(fresh){
   reloadAll().then(function(){
     document.getElementById('splash').classList.add('off');
     document.getElementById('app').classList.add('ready');
-    if (fresh || !isAdmin()) go(isAdmin() ? 'dashboard' : 'work');
+    if (fresh || !isAdmin()) { if (isAdmin()) go('dashboard'); else openWorkTab(WK_CAT); }
   }).catch(function(e){
     document.getElementById('splash').classList.add('off');
     fail(e);
@@ -281,7 +281,8 @@ function renderAll(){
 
 function go(page){
   document.querySelectorAll('.navbtn').forEach(function(b){
-    b.classList.toggle('active', b.dataset.page === page);
+    b.classList.toggle('active', b.dataset.page === page
+      && (page !== 'work' || b.dataset.cat === WK_CAT));
   });
   document.querySelectorAll('.page').forEach(function(s){
     s.classList.toggle('on', s.id === 'page-' + page);
@@ -1326,6 +1327,62 @@ function statusDatalist(){
 
 function catCmp(a, b){ return String(a).localeCompare(String(b), 'vi', { numeric: true }); }
 
+/* --------------------------------------------- Loại việc (thư mục cấp 1) — tên hiển thị có dấu
+   Thư mục trên máy để không dấu cho dễ đọc ("1. Thiet ke"), giao diện hiện "1. Thiết kế". */
+
+var CAT_VI = {
+  'thiet ke': 'Thiết kế', 'tham tra': 'Thẩm tra', 'tham dinh': 'Thẩm định', 'giam sat': 'Giám sát',
+  'thi cong': 'Thi công', 'du toan': 'Dự toán', 'khao sat': 'Khảo sát', 'quyet toan': 'Quyết toán',
+  'tu van': 'Tư vấn', 'xin phep': 'Xin phép', 'hoan cong': 'Hoàn công', 'cai tao': 'Cải tạo',
+  'ket cau': 'Kết cấu', 'kien truc': 'Kiến trúc', 'dien nuoc': 'Điện nước', 'noi that': 'Nội thất',
+};
+var CAT_ICON = { 'thiet ke': '✎', 'tham tra': '☑', 'giam sat': '◉', 'thi cong': '⚒', 'du toan': '∑' };
+
+function viKey(s){
+  // Bỏ dấu: tách chữ và dấu (NFD) rồi xóa khối dấu kết hợp U+0300–U+036F
+  return String(s || '').normalize('NFD').replace(new RegExp('[' + String.fromCharCode(0x300) + '-' + String.fromCharCode(0x36f) + ']', 'g'), '')
+    .replace(/[đĐ]/g, 'd')
+    .toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+/** "1. Thiet ke" -> { pre: "1. ", name: "Thiết kế", key: "thiet ke" } */
+function catParts(c){
+  var m = String(c || '').match(/^(\s*\d+\s*[.\-_)]?\s*)(.*)$/);
+  var pre = m && m[2] ? m[1] : '', raw = m && m[2] ? m[2] : String(c || '');
+  var key = viKey(raw);
+  return { pre: pre, name: CAT_VI[key] || raw, key: key };
+}
+function catName(c){ return catParts(c).name; }                 // "Thiết kế"
+function catLabel(c){ var p = catParts(c); return p.pre + p.name; }  // "1. Thiết kế"
+
+var WK_ALL = '__all', WK_NONE = '__none';
+var WK_CAT = '';   // loại việc đang xem (tab bên trái)
+
+/** Tab bên trái: một tab mỗi loại việc + "Khác" (nếu có) + "Tất cả". */
+function renderWorkNav(){
+  var cats = workCategories();
+  var cnt = {}, none = 0;
+  DB.projects.forEach(function(p){ if (p.category) cnt[p.category] = (cnt[p.category] || 0) + 1; else none++; });
+  var tabs = cats.map(function(c){ return { cat: c, label: catName(c), n: cnt[c], ic: CAT_ICON[catParts(c).key] || '▸' }; });
+  if (none) tabs.push({ cat: WK_NONE, label: 'Khác', n: none, ic: '…' });
+  tabs.push({ cat: WK_ALL, label: 'Tất cả', n: DB.projects.length, ic: '☰' });
+  if (!WK_CAT || !tabs.some(function(t){ return t.cat === WK_CAT; })) WK_CAT = tabs[0].cat;
+  var onWork = document.getElementById('page-work').classList.contains('on');
+  document.getElementById('navWork').innerHTML = tabs.map(function(t){
+    return '<button class="navbtn sub' + (onWork && t.cat === WK_CAT ? ' active' : '') + '" data-page="work"'
+      + ' data-cat="' + esc(t.cat) + '" onclick="openWorkTab(this.dataset.cat)">'
+      + '<i class="ic">' + t.ic + '</i><span class="lb">' + esc(t.label) + '</span>'
+      + '<span class="navcount">' + t.n + '</span></button>';
+  }).join('');
+}
+
+function openWorkTab(cat){
+  WK_CAT = cat;
+  SEL.tblWork = null;
+  go('work');
+  renderWork();
+}
+
 function workCategories(){
   var m = {};
   DB.projects.forEach(function(p){ if (p.category) m[p.category] = 1; });
@@ -1441,17 +1498,15 @@ function renderWork(){
   document.getElementById('wkSync').textContent = s.last_sync
     || (s.drive_root_id ? 'Chưa đồng bộ lần nào.' : 'Chưa liên kết thư mục Google Drive.');
 
-  var catSel = document.getElementById('wkCat');
-  var curCat = catSel.value;
-  catSel.innerHTML = '<option value="">(Tất cả loại việc)</option>'
-    + workCategories().map(function(c){ return '<option value="' + esc(c) + '">' + esc(c) + '</option>'; }).join('');
-  catSel.value = curCat;
-  if (catSel.value !== curCat) catSel.value = '';
+  renderWorkNav();
+  var all = WK_CAT === WK_ALL;
+  document.getElementById('wkTitle').textContent = all ? 'Công việc · Tất cả'
+    : 'Công việc · ' + (WK_CAT === WK_NONE ? 'Khác' : catName(WK_CAT));
 
   var kw = (document.getElementById('wkSearch').value || '').trim().toLowerCase();
-  var cat = catSel.value, flt = document.getElementById('wkFilter').value;
+  var flt = document.getElementById('wkFilter').value;
   var rows = workRows().filter(function(r){
-    if (cat && r.category !== cat) return false;
+    if (!all && (r.category || WK_NONE) !== WK_CAT) return false;
     if (flt === 'noarea' && num(r.area) > 0) return false;
     if (flt === 'pending' && !r._pending) return false;
     if (flt === 'nopartner' && r.partner_id) return false;
@@ -1467,8 +1522,8 @@ function renderWork(){
   var html = '', last = null;
   rows.forEach(function(r){
     var c = r.category || '';
-    if (c !== last){
-      html += '<tr class="grp"><td colspan="10">' + esc(c || 'Khác — thêm tay, không có thư mục Drive')
+    if (all && c !== last){   // tab một loại việc thì không cần dòng nhóm
+      html += '<tr class="grp"><td colspan="10">' + esc(c ? catLabel(c) : 'Khác — thêm tay, không có thư mục Drive')
         + ' · ' + counts[c] + ' công trình</td></tr>';
       last = c;
     }
