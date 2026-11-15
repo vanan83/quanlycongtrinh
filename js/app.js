@@ -2355,8 +2355,7 @@ function renderRenameBox(){
   el.innerHTML = n ? 'Đang chờ đổi tên: <b>' + n + '</b> thư mục' : 'Không có thư mục nào chờ đổi tên.';
   var st = DB.settings || {};
   document.getElementById('st_lastRename').innerHTML = (st.last_rename ? 'Lần đổi gần nhất: ' + esc(st.last_rename) : '')
-    + (st.last_rename_err ? '<span class="renameerr">' + esc(st.last_rename_err).replace(/
-/g, '<br>') + '</span>' : '');
+    + (st.last_rename_err ? '<span class="renameerr">' + esc(st.last_rename_err).split(String.fromCharCode(10)).join('<br>') + '</span>' : '');
 }
 function renameNow(){
   var n = pendingRenames().length;
