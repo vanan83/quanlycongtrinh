@@ -396,3 +396,8 @@ label.fld > span,.dlg label.fld > span{
 .dlg input[type=text]:hover,.dlg select:hover,.dlg textarea:hover{border-color:#B8C8DC}
 .dlg input:focus,.dlg select:focus,.dlg textarea:focus{background:#fff}
 .dlg .body > p.hint:first-child{border-left:3px solid var(--blue)}
+
+/* Thanh tiêu đề khối trong hộp thoại: nền xanh đậm chữ trắng (nhạt hơn thanh tiêu đề cửa sổ một bậc) */
+.dlg .sect > h4{background:linear-gradient(100deg,#1D4E8F 0%,#2C66B2 100%);color:#fff;border-bottom:2px solid var(--gold);
+  font-size:12.5px;letter-spacing:.7px;padding:11px 14px}
+.dlg .sect > h4::before{background:var(--gold);height:15px}
