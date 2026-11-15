@@ -340,3 +340,44 @@ label.fld > span{color:#2E4567}
 #tblProjects td.mid,#tblProjects td.num{white-space:nowrap}
 /* Thẻ tuổi nợ: nhãn cao bằng nhau để số tiền thẳng hàng */
 #agingCards .card .t{min-height:34px}
+
+/* ============================================================ HỘP THOẠI: thanh kéo + nút ✕ */
+.dlghead{display:flex;align-items:center;gap:10px;cursor:move;user-select:none;touch-action:none;
+  background:linear-gradient(110deg,var(--navy) 0%,var(--navy-2) 55%,var(--blue) 100%);
+  border-bottom:3px solid var(--gold)}
+.dlghead.dragging{cursor:grabbing}
+.dlg .dlghead h2{flex:1;min-width:0;background:none;border:0;padding:16px 4px 16px 22px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dlg .dlghead h2::before{content:'⠿';font-size:13px;opacity:.45;margin-right:9px;font-weight:400}
+.dlgx{flex:0 0 auto;width:34px;height:34px;margin-right:12px;border-radius:9px;border:1px solid rgba(255,255,255,.25);
+  background:rgba(255,255,255,.1);color:#fff;font-size:15px;line-height:1;cursor:pointer;transition:.15s}
+.dlgx:hover{background:var(--red);border-color:var(--red);transform:scale(1.05)}
+.dlg{will-change:transform}
+
+/* ============================================================ NHÃN Ô NHẬP dạng thẻ */
+label.fld > span{display:inline-flex;align-items:center;gap:6px;width:auto;max-width:100%;
+  padding:3px 10px 3px 9px;margin-bottom:6px;border-radius:7px;font-size:12px;font-weight:700;color:#173A68;
+  background:linear-gradient(90deg,#E3EEFC,#EFF5FD);border-left:3px solid var(--blue)}
+.dlg label.fld > span{border-left-color:var(--gold);background:linear-gradient(90deg,#FFF1D4,#FFF8EA);color:#5F3B00}
+label.fld > span b{color:inherit}
+
+/* ============================================================ NÚT có nền */
+.btn{background:linear-gradient(180deg,#FFFFFF,#EEF3FA);border-color:#C9D7E8;color:#16335C;
+  box-shadow:0 1px 2px rgba(11,35,71,.08)}
+.btn:hover{background:linear-gradient(180deg,#F4F8FE,#E2EBF7);border-color:#AFC3DD}
+.btn.sm{background:linear-gradient(180deg,#EAF2FE,#DCE8FA);border-color:#B9CFEE;color:#134A9A}
+.btn.sm:hover{background:linear-gradient(180deg,#DCE8FA,#CCDDF6)}
+.btn.ghost{background:transparent;box-shadow:none}
+.btn.danger{background:linear-gradient(180deg,#FFF6F6,#FCE7E8)}
+.btn.danger:hover{background:var(--red);color:#fff}
+.dlg .foot .btn:not(.primary):not(.success):not(.danger){min-width:84px;justify-content:center}
+.dlg .foot{background:linear-gradient(180deg,#F5F8FC,#EBF1F8)}
+/* nút màu luôn thắng kiểu nút nhỏ / nút nền ở trên */
+.btn.primary,.btn.sm.primary{background:linear-gradient(180deg,#2077EE,var(--blue));border-color:var(--blue);color:#fff;
+  box-shadow:0 3px 10px rgba(23,103,216,.28)}
+.btn.primary:hover,.btn.sm.primary:hover{background:linear-gradient(180deg,var(--blue),var(--blue-dark))}
+.btn.success,.btn.sm.success{background:linear-gradient(180deg,#17A766,var(--green));border-color:var(--green);color:#fff}
+.btn.sm.danger{background:linear-gradient(180deg,#FFF6F6,#FCE7E8);border-color:#F2C2C6;color:var(--red)}
+.btn.ghost.sm{background:transparent;border-color:transparent;box-shadow:none;color:var(--muted)}
+.btn.ghost.sm:hover{background:#EEF3F9;color:var(--ink)}
+.dlg .foot .btn.danger{background:var(--red);border-color:var(--red);color:#fff}

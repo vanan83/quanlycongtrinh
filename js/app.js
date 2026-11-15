@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.15-7';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.15-8';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -167,11 +167,9 @@ window.addEventListener('DOMContentLoaded', function(){
   document.querySelectorAll('.navbtn[data-page]').forEach(function(b){
     b.addEventListener('click', function(){ go(b.dataset.page); });
   });
-  ['mask','mask2'].forEach(function(id){
-    document.getElementById(id).addEventListener('click', function(e){
-      if (e.target.id === id) closeDlg();
-    });
-  });
+  // KHÔNG đóng hộp thoại khi bấm ra nền mờ: bôi đen chữ trong ô rồi thả chuột ra ngoài cũng
+  // sinh sự kiện "bấm vào nền" -> trước đây mất sạch dữ liệu đang gõ. Chỉ đóng bằng ✕ / Hủy / Esc.
+  ['dlg','dlg2'].forEach(dragDlg);
   document.addEventListener('keydown', function(e){
     if (e.key !== 'Escape') return;
     if (document.getElementById('mask').classList.contains('on')
@@ -2172,6 +2170,31 @@ function topLevel(){
   return document.getElementById('mask2').classList.contains('on') ? 2 : 1;
 }
 
+/** Cầm thanh tiêu đề kéo hộp thoại đi chỗ khác (chuột và cảm ứng). */
+function dragDlg(dlgId){
+  var dlg = document.getElementById(dlgId), head = dlg.querySelector('.dlghead');
+  var sx = 0, sy = 0, bx = 0, by = 0, r0 = null, on = false;
+  function pos(){ var m = /translate\((-?[\d.]+)px,\s*(-?[\d.]+)px\)/.exec(dlg.style.transform || ''); return m ? [+m[1], +m[2]] : [0, 0]; }
+  function clamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
+  head.addEventListener('pointerdown', function(e){
+    if (e.button !== 0 || e.target.closest('.dlgx')) return;
+    var p = pos(); bx = p[0]; by = p[1]; sx = e.clientX; sy = e.clientY; r0 = dlg.getBoundingClientRect(); on = true;
+    try { head.setPointerCapture(e.pointerId); } catch (err) {}
+    head.classList.add('dragging'); e.preventDefault();
+  });
+  head.addEventListener('pointermove', function(e){
+    if (!on) return;
+    // Vị trí mới của mép trái / mép trên; giữ thanh tiêu đề luôn trong màn hình để còn cầm kéo lại
+    var left = clamp(r0.left + e.clientX - sx, 120 - r0.width, window.innerWidth - 120);
+    var top = clamp(r0.top + e.clientY - sy, 0, window.innerHeight - 60);
+    dlg.style.transform = 'translate(' + (bx + left - r0.left) + 'px,' + (by + top - r0.top) + 'px)';
+  });
+  function stop(){ on = false; head.classList.remove('dragging'); }
+  head.addEventListener('pointerup', stop);
+  head.addEventListener('pointercancel', stop);
+  head.addEventListener('dblclick', function(e){ if (!e.target.closest('.dlgx')) dlg.style.transform = ''; });
+}
+
 function openDlg(cfg){
   var lvl = cfg.nested ? 2 : 1;
   var id = dlgIds(lvl);
@@ -2191,6 +2214,7 @@ function openDlg(cfg){
     el.onclick = b.act;
     foot.appendChild(el);
   });
+  document.getElementById(id.dlg).style.transform = '';   // mỗi lần mở: về giữa màn hình
   document.getElementById(id.mask).classList.add('on');
 }
 
