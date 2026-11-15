@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.15-36';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.15-37';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -1006,7 +1006,7 @@ function projectDlg(p){
           + esc(p.category) + '"' + (fromDrive ? ' readonly' : '') + '>'
           + '<datalist id="pj_catList">' + cats.map(function(c){ return '<option value="' + esc(c) + '">'; }).join('')
           + '</datalist></label>')
-      + '<label class="fld"><span>Tình trạng</span><input type="text" id="pj_status" list="wk_statusList" value="'
+      + '<label class="fld"><span>Tình trạng</span><input type="text" id="pj_status" list="wk_statusList"' + STATUS_EVT + ' value="'
       + esc(p.id ? statusOf(p.status) : DEFAULT_STATUS) + '">' + statusDatalist() + '</label>'
       + '</div>'
       + '<div class="grid2">'
@@ -1442,6 +1442,23 @@ function statusChip(s){
 }
 var STATUS_LIST = ['Mới nhận', 'Đang làm', 'Chờ thông tin', 'Đã gửi bản vẽ', 'Đang chỉnh sửa', 'Hoàn thành'];
 
+/**
+ * Ô Tình trạng (datalist): trình duyệt chỉ gợi ý các mục khớp chữ đang có trong ô, nên ô đang ghi
+ * "Mới nhận" thì bấm mũi tên chỉ thấy "Mới nhận". Khi bấm vào ô: tạm để trống (chữ cũ hiện mờ) để
+ * thấy đủ danh sách; rời ô mà không chọn / gõ gì thì trả lại chữ cũ.
+ */
+var STATUS_EVT = ' onfocus="stFocus(this)" onblur="stBlur(this)"';
+function stFocus(el){
+  if (!el.value) return;
+  el.dataset.old = el.value;
+  el.placeholder = el.value;
+  el.value = '';
+}
+function stBlur(el){
+  if (!el.value.trim() && el.dataset.old) el.value = el.dataset.old;
+  el.placeholder = '';
+}
+
 function statusDatalist(){
   var seen = {};
   STATUS_LIST.forEach(function(s){ seen[s] = 1; });
@@ -1757,7 +1774,7 @@ function workDlg(id){
       + '<input type="text" inputmode="decimal" id="pj_area" value="' + (num(p.area) ? dienTichVn(p.area) : '') + '"></label>'
       + '<button class="btn sm" onclick="pjOpenFloors()" id="pj_floorBtn" style="margin:-4px 0 6px"></button></div>'
       + '<label class="fld"><span>Tình trạng</span>'
-      + '<input type="text" id="wk_status" list="wk_statusList" value="' + esc(statusOf(p.status)) + '">'
+      + '<input type="text" id="wk_status" list="wk_statusList"' + STATUS_EVT + ' value="' + esc(statusOf(p.status)) + '">'
       + statusDatalist() + '</label>'
       + '</div>'
       + (PD.reports ? '</div>' : '<label class="chk chk-box"><input type="checkbox" id="wk_permit"' + (p.permit === '1' ? ' checked' : '') + '>'
