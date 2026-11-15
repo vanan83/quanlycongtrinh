@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.15-16';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.15-17';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -221,6 +221,8 @@ function boot(fresh){
     document.getElementById('splash').classList.add('off');
     document.getElementById('app').classList.add('ready');
     if (fresh || !isAdmin()) { if (isAdmin()) go('dashboard'); else openWorkTab(WK_CAT); }
+    var act = document.querySelector('.navbtn.active .lb');
+    if (act) document.getElementById('tbTitle').textContent = act.textContent;
   }).catch(function(e){
     document.getElementById('splash').classList.add('off');
     fail(e);
@@ -241,6 +243,7 @@ function reloadAll(){
     document.getElementById('verLabel').textContent = 'v' + VERSION;
     document.getElementById('sideName').textContent = ME.name || '';
     document.getElementById('sideRole').textContent = ME.title || '';
+    document.getElementById('tbWho').textContent = ME.name || '';
     document.body.classList.toggle('role-staff', !isAdmin());
     document.body.classList.toggle('not-owner', !ME.owner);
     document.getElementById('navSettingsLb').textContent = isAdmin() ? 'Thiết lập' : 'Tài khoản';
@@ -279,6 +282,14 @@ function go(page){
     s.classList.toggle('on', s.id === 'page-' + page);
   });
   document.getElementById('main').scrollTop = 0;
+  var act = document.querySelector('.navbtn.active .lb');
+  document.getElementById('tbTitle').textContent = act ? act.textContent : 'Công Trình';
+  toggleSide(false);
+}
+
+/** Menu trượt trên điện thoại / màn hình hẹp. */
+function toggleSide(open){
+  document.getElementById('app').classList.toggle('side-open', !!open);
 }
 
 /* ==================================================== THỐNG KÊ (như bản Python) */
@@ -813,7 +824,8 @@ function projectRows(){
 
 function renderProjects(){
   var kw = (document.getElementById('prSearch').value || '').trim().toLowerCase();
-  var rows = projectRows();
+  var pf = fillPartnerFilter('prPartner');
+  var rows = projectRows().filter(function(r){ return partnerPass(r, pf); });
   if (kw) rows = rows.filter(function(r){
     return String(r.name || '').toLowerCase().indexOf(kw) >= 0
         || String(r.partner_name || '').toLowerCase().indexOf(kw) >= 0;
@@ -1218,6 +1230,23 @@ function pjSave(){
 
 /* ==================================================== TRANG CÔNG NỢ */
 
+/** Ô chọn đối tác để lọc (trang Công việc, Công trình). Giữ lựa chọn cũ khi vẽ lại. */
+function fillPartnerFilter(id){
+  var sel = document.getElementById(id), cur = sel.value;
+  sel.innerHTML = '<option value="">Tất cả đối tác</option>'
+    + DB.partners.slice().sort(function(a, b){ return String(a.name).localeCompare(String(b.name), 'vi'); })
+      .map(function(p){ return '<option value="' + p.id + '">' + esc(p.name) + '</option>'; }).join('')
+    + '<option value="none">— Chưa gán đối tác —</option>';
+  sel.value = cur;
+  if (sel.value !== cur) sel.value = '';
+  sel.classList.toggle('on', !!sel.value);
+  return sel.value;
+}
+function partnerPass(r, pf){
+  if (!pf) return true;
+  return pf === 'none' ? !r.partner_id : String(r.partner_id) === pf;
+}
+
 function renderDebtPartnerSelect(){
   var sel = document.getElementById('debtPartner');
   var cur = sel.value;
@@ -1486,8 +1515,10 @@ function renderWork(){
 
   var kw = (document.getElementById('wkSearch').value || '').trim().toLowerCase();
   var flt = document.getElementById('wkFilter').value;
+  var pf = fillPartnerFilter('wkPartner');
   var rows = workRows().filter(function(r){
     if (!all && (r.category || WK_NONE) !== WK_CAT) return false;
+    if (!partnerPass(r, pf)) return false;
     if (flt === 'noarea' && num(r.area) > 0) return false;
     if (flt === 'pending' && !r._pending) return false;
     if (flt === 'nopartner' && r.partner_id) return false;

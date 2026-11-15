@@ -38,10 +38,18 @@
 
 <!-- ============================================================ KHUNG CHÍNH -->
 <div id="app">
+  <!-- Thanh trên cùng cho điện thoại / màn hình hẹp: nút ☰ mở menu -->
+  <header id="topbar">
+    <button class="tb-menu" type="button" onclick="toggleSide(true)" aria-label="Mở menu">☰</button>
+    <div class="tb-title" id="tbTitle">Công Trình</div>
+    <div class="tb-who" id="tbWho"></div>
+  </header>
+  <div id="sideMask" onclick="toggleSide(false)"></div>
   <nav id="sidebar">
     <div class="brand">
       <div class="logo">PVA</div>
       <div class="txt"><b>Công Trình</b><span id="verLabel"></span></div>
+      <button class="side-x" type="button" onclick="toggleSide(false)" aria-label="Đóng menu">✕</button>
     </div>
     <button class="navbtn active admin-only" data-page="dashboard"><i class="ic">📊</i><span class="lb">Tổng quan</span></button>
     <div class="navsec">Công việc</div>
@@ -130,6 +138,7 @@
       <div class="toolbar">
         <input type="text" class="grow" id="wkSearch" placeholder="Tìm công trình, đối tác, ghi chú…"
                oninput="renderWork()">
+        <select id="wkPartner" class="pfilter" onchange="renderWork()" title="Lọc theo đối tác"></select>
         <select id="wkFilter" style="width:auto" onchange="renderWork()">
           <option value="">Tất cả</option>
           <option value="noarea">Chưa nhập diện tích</option>
@@ -137,7 +146,7 @@
           <option value="nopartner" class="admin-only">Chưa gán đối tác</option>
           <option value="missing">Thư mục đã xóa</option>
         </select>
-        <button class="btn" onclick="arisingForSelected('tblWork')">± Phát sinh</button>
+        <button class="btn ps" onclick="arisingForSelected('tblWork')">± Phát sinh</button>
         <button class="btn primary" onclick="editWork()">✎ Nhập diện tích / phát sinh</button>
       </div>
       <p class="hint" id="wkSync" style="margin:-4px 0 10px"></p>
@@ -296,7 +305,8 @@
       <div class="toolbar">
         <input type="text" class="grow" id="prSearch" placeholder="Tìm theo tên công trình hoặc đối tác…"
                oninput="renderProjects()">
-        <button class="btn" onclick="arisingForSelected('tblProjects')">± Phát sinh</button>
+        <select id="prPartner" class="pfilter" onchange="renderProjects()" title="Lọc theo đối tác"></select>
+        <button class="btn ps" onclick="arisingForSelected('tblProjects')">± Phát sinh</button>
         <button class="btn primary" onclick="dupProject()">⧉ Nhân bản</button>
         <button class="btn" onclick="exportSheet('projects')">⬇ Xuất Excel</button>
         <button class="btn" onclick="editProject()">Sửa / Tạm ứng</button>

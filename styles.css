@@ -4,7 +4,7 @@
 /* ============================================================ NỀN TẢNG */
 :root{
   --bg:#F2F5FA; --panel:#FFFFFF; --ink:#16243A; --muted:#66768B; --line:#E0E7F0;
-  --navy:#0B2347; --navy-2:#123A6B; --blue:#1767D8; --blue-dark:#0F4FAE; --sky:#E8F1FD;
+  --navy:#0C3C73; --navy-2:#0F4A8A; --blue:#1767D8; --blue-dark:#0F4FAE; --sky:#E8F1FD;
   --gold:#F5A524; --green:#12925A; --red:#D33F49; --amber:#C98A07;
   --row-bad:#FDEEEF; --row-warn:#FFF7E6;
   --side-ink:#B9C9DE;
@@ -134,7 +134,7 @@ label.fld > span{display:block;font-size:12px;color:#3D5170;margin-bottom:5px;fo
   box-shadow:var(--shadow);overflow:auto;max-height:calc(100vh - 270px)}
 table{width:100%;border-collapse:collapse;font-size:13.5px}
 thead th{
-  position:sticky;top:0;z-index:2;background:linear-gradient(180deg,#16427A,#0E2F5A);text-align:left;
+  position:sticky;top:0;z-index:2;background:linear-gradient(180deg,#145394,#0C3C73);text-align:left;
   padding:13px 12px;border-bottom:3px solid var(--gold);font-size:12px;color:#fff;font-weight:700;
   text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;cursor:pointer;user-select:none;
 }
@@ -494,3 +494,121 @@ body.role-staff .not-admin-only{display:inline} body:not(.role-staff) .not-admin
 .tswork{font-size:13px;line-height:1.8;padding:8px 10px;margin:0 0 10px;background:#F1F6FD;border-radius:9px;border-left:3px solid var(--blue)}
 .slot-rest{white-space:nowrap}
 .slot-rest.mini{display:inline-grid;width:22px;height:20px;flex:none;font-style:normal}
+
+
+/* ============================================================ NHIỀU CỠ MÀN HÌNH
+   - Máy tính: thanh bên luôn cuộn được (màn hình thấp không bị khuất mục cuối).
+   - ≤ 900px (điện thoại, máy tính bảng dọc): thanh trên cùng có nút ☰, menu trượt từ trái. */
+#app{height:100vh;height:100dvh}
+#sidebar{overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.25) transparent}
+#sidebar::-webkit-scrollbar{width:6px}
+#sidebar::-webkit-scrollbar-thumb{background:rgba(255,255,255,.25);border-radius:6px}
+#sidebar > *{flex-shrink:0}
+#topbar,#sideMask,.side-x{display:none}
+
+@media (min-width:901px) and (max-height:820px){
+  #sidebar{padding:10px 12px;gap:1px}
+  .brand{padding:2px 8px 10px;margin-bottom:4px}
+  .brand .logo{width:36px;height:36px;flex-basis:36px}
+  .navbtn{padding:7px 14px}
+  .navsec{padding:8px 12px 2px}
+  .sidefoot{padding:8px 10px 2px}
+}
+
+@media (max-width:900px){
+  #app.ready{flex-direction:column}
+  #topbar{display:flex;align-items:center;gap:10px;flex:0 0 auto;padding:8px 12px;
+    padding-top:max(8px,env(safe-area-inset-top));color:#fff;z-index:20;
+    background:linear-gradient(90deg,#0F4A8A,#0C3C73);box-shadow:0 2px 12px rgba(11,35,71,.25)}
+  .tb-menu{width:40px;height:40px;border:0;border-radius:10px;background:rgba(255,255,255,.14);
+    color:#fff;font-size:20px;cursor:pointer;flex:0 0 40px}
+  .tb-menu:active{background:rgba(255,255,255,.25)}
+  .tb-title{flex:1;min-width:0;font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tb-who{font-size:12px;opacity:.85;max-width:40%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  /* menu trượt: giữ nguyên kiểu dọc như máy tính, đủ chữ */
+  #sidebar{position:fixed;left:0;top:0;bottom:0;width:272px;max-width:84vw;flex:none;z-index:90;
+    flex-direction:column;align-items:stretch;overflow-y:auto;padding:12px;gap:2px;
+    padding-top:max(12px,env(safe-area-inset-top));padding-bottom:max(12px,env(safe-area-inset-bottom));
+    background:linear-gradient(180deg,#0F4A8A 0%,#0C3C73 55%,#0A3263 100%);
+    transform:translateX(-105%);transition:transform .22s ease;box-shadow:none}
+  #app.side-open #sidebar{transform:none;box-shadow:8px 0 30px rgba(5,18,40,.4)}
+  #sideMask{display:block;position:fixed;inset:0;z-index:85;background:rgba(9,22,44,.45);
+    opacity:0;pointer-events:none;transition:opacity .2s}
+  #app.side-open #sideMask{opacity:1;pointer-events:auto}
+  .brand{padding:4px 4px 12px 8px;border-bottom:1px solid rgba(255,255,255,.14);margin-bottom:6px}
+  .brand .txt{display:block;flex:1}
+  .side-x{display:grid;place-items:center;width:34px;height:34px;border:0;border-radius:9px;
+    background:rgba(255,255,255,.12);color:#fff;font-size:15px;cursor:pointer}
+  .navsec{display:block}
+  .navgroup{flex-direction:column;gap:2px}
+  .navbtn{width:100%;flex:none;padding:11px 14px;font-size:15px}
+  .navbtn .lb{display:inline}
+  .navbtn .navcount{margin-left:auto}
+  .sidefoot{display:block}
+
+  #main{padding:14px 12px 40px;padding-bottom:max(40px,env(safe-area-inset-bottom))}
+  .phead{margin-bottom:14px}
+  .phead h1{font-size:21px}
+  .phead p{margin-left:0}
+  .phead h1::before{display:none}
+  .toolbar .btn{padding:8px 11px}
+  .tablewrap{max-height:none;-webkit-overflow-scrolling:touch}
+  table{font-size:13px}
+  .grid2,.grid3{grid-template-columns:1fr}
+  .cards{grid-template-columns:1fr 1fr}
+
+  /* hộp thoại gần như toàn màn hình, nút luôn ở dưới cùng */
+  .mask{padding:0;align-items:stretch}
+  .dlg,.dlg.wide{max-width:none;border-radius:0;min-height:100%;display:flex;flex-direction:column;transform:none!important}
+  .dlg .body{max-height:none;flex:1;padding:14px}
+  .dlg .foot{position:sticky;bottom:0;padding:10px 14px;padding-bottom:max(10px,env(safe-area-inset-bottom))}
+  .dlg .dlghead h2::before{display:none}
+  .arform{grid-template-columns:1fr}
+
+  /* lịch chấm công */
+  .tsgrid{gap:3px}
+  .tsday{min-height:62px;padding:3px}
+  .slot{min-width:0;height:24px;font-size:10.5px;padding:0 2px}
+}
+@media (max-width:420px){
+  .cards{grid-template-columns:1fr}
+  .tb-who{display:none}
+  .slot.off.wide{font-size:9.5px;letter-spacing:-.2px}
+  .tsday .dn{font-size:11px}
+}
+/* điện thoại: ô nhập 16px để iPhone không tự phóng to khi gõ */
+@media (max-width:900px){ input,select,textarea{font-size:16px} }
+
+
+/* Nút ± Phát sinh: nền tím (cùng màu nhãn phát sinh) cho dễ thấy */
+.btn.ps{background:linear-gradient(180deg,#8E5CF0,#7042D8);border-color:#6A3CCF;color:#fff;
+  box-shadow:0 3px 10px rgba(112,66,216,.3)}
+.btn.ps:hover{background:linear-gradient(180deg,#7C4DDB,#5E33C2);border-color:#5E33C2;color:#fff}
+/* Ô lọc đối tác */
+select.pfilter{width:auto;min-width:180px;max-width:240px}
+select.pfilter.on{border-color:var(--blue);background-color:#EAF2FE;color:var(--blue-dark);font-weight:600}
+@media (max-width:900px){
+  .toolbar input.grow{flex:1 1 100%}
+  select.pfilter,#wkFilter{flex:1 1 40%;min-width:0;max-width:none}
+}
+/* Không để bảng / biểu đồ đẩy trang rộng hơn màn hình */
+#main{min-width:0}
+.chartrow > *,.grid2 > *,.grid3 > *,.cards > *,.ts-wrap > *{min-width:0}
+@media (max-width:900px){
+  #main{width:100%}
+  .panel{overflow-x:auto;padding:14px 14px 16px}
+  .panel > h3:first-child{margin:-14px -14px 12px;padding:11px 14px}
+  .chartrow{grid-template-columns:minmax(0,1fr)}
+  .cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .card .v{font-size:19px}
+}
+@media (max-width:420px){ .cards{grid-template-columns:repeat(2,minmax(0,1fr))} }
+/* Điện thoại: ô Sáng / Chiều xếp chồng cho đủ chữ */
+@media (max-width:600px){
+  .tsday .slots{flex-direction:column;gap:3px}
+  .tsday .slot{width:100%;flex:none;height:22px}
+  .slot.off.wide{font-size:10px;letter-spacing:0}
+  .tsday .dn{margin-bottom:3px}
+  .tsday{min-height:0}
+}
