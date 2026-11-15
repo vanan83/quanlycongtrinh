@@ -705,3 +705,7 @@ td.rate-manual{background:#F6F2FF}
 
 .btn.sm.cpy{background:#ECFDF3;border-color:#A7E3C3;color:#0F7A47}
 .btn.sm.cpy:hover{background:#12925A;border-color:#12925A;color:#fff}
+
+/* Ô "nhập thẳng giá tiền" (Thẩm tra) */
+.fixedbox{margin:2px 0 10px;padding:10px 12px;border-radius:10px;background:#F3EEFF;border:1px dashed #B9A2F2}
+.fixedbox span{color:#5B2FC9 !important}

@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.15-31';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.15-32';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -306,8 +306,8 @@ function toggleSide(open){
 
 /** Thành tiền = DT × Đơn giá × Hệ số + Xin phép + Phát sinh (QL nhập) + Phát sinh đã duyệt. */
 function projectAmount(p){
-  return Math.round(num(p.area) * num(p.unit_price) * num(p.factor)
-                    + num(p.permit_fee) + num(p.arising_fee) + approvedArising(p.id));
+  var base = num(p.fixed_fee) > 0 ? num(p.fixed_fee) : num(p.area) * num(p.unit_price) * num(p.factor);
+  return Math.round(base + num(p.permit_fee) + num(p.arising_fee) + approvedArising(p.id));
 }
 
 function approvedArising(projectId){
@@ -967,12 +967,12 @@ function projectDlg(p){
       + '</div>'
       + '<div class="grid2">'
       + (isNew
-        ? '<label class="fld"><span>Loại việc (thư mục trên Drive)</span><select id="pj_cat" onchange="pjFolderPreview()">'
+        ? '<label class="fld"><span>Loại việc (thư mục trên Drive)</span><select id="pj_cat" onchange="pjFolderPreview();pjRecalc()">'
           + newProjectCats().map(function(c){
               return '<option value="' + esc(c) + '"' + (c === WK_CAT ? ' selected' : '') + '>' + esc(catLabel(c)) + '</option>';
             }).join('')
           + '<option value="">Khác — không tạo thư mục</option></select></label>'
-        : '<label class="fld"><span>Loại việc</span><input type="text" id="pj_cat" list="pj_catList" value="'
+        : '<label class="fld"><span>Loại việc</span><input type="text" id="pj_cat" list="pj_catList" oninput="pjRecalc()" value="'
           + esc(p.category) + '"' + (fromDrive ? ' readonly' : '') + '>'
           + '<datalist id="pj_catList">' + cats.map(function(c){ return '<option value="' + esc(c) + '">'; }).join('')
           + '</datalist></label>')
@@ -1001,8 +1001,12 @@ function projectDlg(p){
       + '<input type="text" inputmode="decimal" id="pj_factor" oninput="pjRecalc()" value="'
       + heSoVn(num(p.factor) || 1) + '"></label>'
       + '</div>'
+      + '<div class="fixedbox" id="pj_fixedWrap"><label class="fld" style="margin:0"><span>Hoặc nhập thẳng giá tiền (đ) — '
+      + 'có số ở đây thì không tính Diện tích × Đơn giá</span>'
+      + '<input type="text" inputmode="decimal" id="pj_fixed" oninput="pjRecalc()" placeholder="VD: 15.000.000" value="'
+      + (num(p.fixed_fee) ? moneyPlain(p.fixed_fee) : '') + '"></label></div>'
       + '<div class="grid2">'
-      + '<div class="fld"><label class="chk"><input type="checkbox" id="pj_permit_on" onchange="pjPermitToggle()"'
+      + '<div class="fld" id="pj_permitWrap"><label class="chk"><input type="checkbox" id="pj_permit_on" onchange="pjPermitToggle()"'
       + (p.permit === '1' || num(p.permit_fee) ? ' checked' : '') + '> Có xin phép xây dựng — số tiền (đ)</label>'
       + '<input type="text" inputmode="decimal" id="pj_permit" oninput="pjRecalc()" placeholder="Theo phí của đối tác" value="'
       + (num(p.permit_fee) ? moneyPlain(p.permit_fee) : '') + '"></div>'
@@ -1048,7 +1052,15 @@ function pjRead(){
     factor: docSo(document.getElementById('pj_factor').value) || 1,
     permit_fee: docTien(document.getElementById('pj_permit').value),
     arising_fee: docTien(document.getElementById('pj_arising').value),
+    fixed_fee: document.getElementById('pj_fixed') ? docTien(document.getElementById('pj_fixed').value) : 0,
   };
+}
+
+/** Loại việc đang chọn trong hộp thoại công trình có phải Thẩm tra không. */
+function pjIsThamTra(){
+  var c = document.getElementById('pj_cat');
+  var v = c ? c.value : '';
+  return !!v && /th[aẩ]m tra/i.test(catName(v) + ' ' + v);
 }
 
 /** Dùng chung cho hộp thoại công trình (quản lý) và hộp thoại công việc (nhân viên). */
@@ -1059,13 +1071,18 @@ function pjRecalc(){
     : '⌗ Tính diện tích theo tầng';
   if (!document.getElementById('pj_amount')) return;   // hộp thoại công việc: không có tiền
 
+  var tt = pjIsThamTra();
+  var fw = document.getElementById('pj_fixedWrap'), pw = document.getElementById('pj_permitWrap');
+  if (fw) fw.style.display = tt || num(docTien(document.getElementById('pj_fixed').value)) ? '' : 'none';
+  if (pw) pw.style.visibility = tt ? 'hidden' : '';
   var v = pjRead();
   var amount = projectAmount(v);
   var adv = PD.advances.reduce(function(s, a){ return s + num(a.amount); }, 0);
   document.getElementById('pj_amount').textContent = money(amount);
   document.getElementById('pj_adv').textContent = money(adv);
   document.getElementById('pj_remain').textContent = money(amount - adv);
-  var f = dienTichVn(v.area) + ' × ' + moneyPlain(v.unit_price) + ' × ' + heSoVn(v.factor);
+  var f = v.fixed_fee > 0 ? 'Giá nhập thẳng ' + moneyPlain(v.fixed_fee)
+        : dienTichVn(v.area) + ' × ' + moneyPlain(v.unit_price) + ' × ' + heSoVn(v.factor);
   if (v.permit_fee) f += ' + ' + moneyPlain(v.permit_fee);
   if (v.arising_fee) f += ' + ' + moneyPlain(v.arising_fee);
   if (approvedArising(v.id)) f += ' + ' + moneyPlain(approvedArising(v.id)) + ' (PS đã duyệt)';
@@ -1713,13 +1730,13 @@ function workDlg(id){
       + '<input type="text" id="wk_status" list="wk_statusList" value="' + esc(statusOf(p.status)) + '">'
       + statusDatalist() + '</label>'
       + '</div>'
-      + '<label class="chk chk-box"><input type="checkbox" id="wk_permit"' + (p.permit === '1' ? ' checked' : '') + '>'
+      + (PD.reports ? '</div>' : '<label class="chk chk-box"><input type="checkbox" id="wk_permit"' + (p.permit === '1' ? ' checked' : '') + '>'
       + ' <span><b>Có xin phép xây dựng</b><small>' + (isAdmin()
           ? 'Tự cộng phí xin phép của đối tác vào công nợ' + (partnerPermit(p.partner_id) ? ' (' + money(partnerPermit(p.partner_id)) + ')' : '')
           : 'Tích nếu công trình có làm hồ sơ xin phép xây dựng') + '</small></span></label>'
       + '<label class="fld" style="margin:4px 0 0"><span>Ghi chú</span>'
       + '<textarea id="wk_note" placeholder="VD: Cải tạo (tính 40% diện tích), nâng thêm 2 tầng…">'
-      + esc(p.note) + '</textarea></label></div>'
+      + esc(p.note) + '</textarea></label></div>')
       + (PD.reports ? '<div class="sect rp-sect"><h4>Số báo cáo thẩm tra</h4><div id="rp_box"></div>'
           + '<button class="btn sm primary" style="margin-top:10px" onclick="rpAdd()" id="rp_addBtn"></button></div>' : '')
       + '<div class="sect"><h4>Phát sinh</h4><div id="ar_box"></div>'
@@ -1870,12 +1887,13 @@ function wkSave(){
   var rec = {
     id: PD.id,
     partner_id: document.getElementById('wk_partner').value || '',
-    permit: document.getElementById('wk_permit').checked,
     area: docSo(document.getElementById('pj_area').value),
     status: document.getElementById('wk_status').value,
-    note: document.getElementById('wk_note').value,
     floors: PD.floors,
   };
+  var pm = document.getElementById('wk_permit'), nt = document.getElementById('wk_note');
+  if (pm) rec.permit = pm.checked;      // Thẩm tra không có 2 ô này
+  if (nt) rec.note = nt.value;
   if (PD.reports) rec.reports = PD.reports;
   call('apiSaveWork', [rec]).then(function(){
     closeDlg();
@@ -2802,6 +2820,23 @@ function confirmDlg(title, html, onOk, cls, nested){
 
 /* ==================================================== CÀI ĐẶT NHƯ ỨNG DỤNG (PWA)
    sw.js lưu sẵn giao diện trong máy -> lần sau mở ngay. Có bản mới thì tự tải lại một lần. */
+/** App đã cài trên máy tính (cửa sổ riêng): mở ra là phóng to hết màn hình (vẫn thấy thanh Taskbar). */
+(function maximizeInstalledApp(){
+  try {
+    var standalone = window.matchMedia('(display-mode: standalone)').matches
+                  || window.matchMedia('(display-mode: window-controls-overlay)').matches;
+    var phone = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+    if (!standalone || phone) return;
+    var fit = function(){
+      if (window.outerWidth >= screen.availWidth - 8 && window.outerHeight >= screen.availHeight - 8) return;
+      window.moveTo(screen.availLeft || 0, screen.availTop || 0);
+      window.resizeTo(screen.availWidth, screen.availHeight);
+    };
+    fit();
+    setTimeout(fit, 300);
+  } catch (e) { /* trình duyệt không cho thì thôi */ }
+})();
+
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   var hadSW = !!navigator.serviceWorker.controller;
   navigator.serviceWorker.register('sw.js').catch(function(){});
