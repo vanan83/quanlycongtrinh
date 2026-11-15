@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.15-28';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.15-29';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -2110,8 +2110,9 @@ function loadPayroll(){
 
 /** Mức tự động: 1 buổi OFF = lương cơ bản / 26 / 2; tăng ca = 1 buổi × 1,5 (giống autoRates_ ở máy chủ). */
 function autoRates(base){
-  var b = num(base) / 26 / 2;
-  return { off: Math.round(b), ot: Math.round(b * 1.5) };
+  var ceilK = function(x){ return Math.ceil(Math.round(x) / 1000) * 1000; };   // làm tròn lên nghìn
+  var off = ceilK(num(base) / 26 / 2);
+  return { off: off, ot: ceilK(off * 1.5) };
 }
 
 function prRow(r){
@@ -2196,7 +2197,7 @@ function salaryDlg(uid){
         + '<label class="fld"><span>Mức trừ OFF / buổi (đ)</span>'
         + '<input type="text" inputmode="decimal" id="sl_off" data-manual="' + (num(u.off_rate) ? 1 : '') + '"'
         + ' oninput="slRateInput(this)" onblur="slAuto()" value="' + (num(u.off_rate) ? moneyPlain(u.off_rate) : '') + '"></label>'
-        + '</div><p class="hint" style="margin:0">Tự động: <b>1 buổi OFF = lương cơ bản ÷ 26 ÷ 2</b>, <b>tăng ca = 1 buổi × 1,5</b>. '
+        + '</div><p class="hint" style="margin:0">Tự động: <b>1 buổi OFF = lương cơ bản ÷ 26 ÷ 2</b>, <b>tăng ca = 1 buổi × 1,5</b> (làm tròn lên nghìn). '
         + 'Gõ số khác thì ô chuyển <span class="rate-manual">màu tím</span> (nhập tay); xóa trắng ô thì quay lại tự động.<br>'
         + 'Thực nhận = Lương cơ bản + số buổi tăng ca × mức tăng ca − số buổi OFF × mức trừ OFF.</p>',
     buttons: [
