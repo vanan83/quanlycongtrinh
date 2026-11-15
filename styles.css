@@ -631,3 +631,7 @@ tfoot td + td{border-left:1px solid #E1E8F1}
 
 /* Tình trạng "Mới nhận" (mặc định khi vừa tạo thư mục) */
 .chip.new{background:#E0F5F8;color:#0B6C7C}
+/* Xem trước thư mục Drive sẽ tạo khi thêm công trình */
+.folderprev{margin:2px 0 4px;padding:9px 12px;border-radius:9px;background:#FFF7E6;border:1px dashed #F0C36B;
+  color:#6B4A00;font-size:13px;word-break:break-word}
+.folderprev:empty{display:none}

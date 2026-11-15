@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.15-21';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.15-22';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -949,16 +949,23 @@ function projectDlg(p){
       '<div class="grid2">'
       + '<label class="fld"><span>Tên công trình *' + (fromDrive ? ' — lấy theo tên thư mục Drive' : '')
       + '</span><input type="text" id="pj_name" value="' + esc(p.name) + '"' + (fromDrive ? ' readonly' : '')
+      + (isNew ? ' oninput="pjFolderPreview()"' : '')
       + '></label>'
       + '<label class="fld"><span>Đối tác' + (p.partner_hint && !p.partner_id
           ? ' — gợi ý từ tên thư mục: <b>' + esc(p.partner_hint) + '</b>' : '') + '</span>'
       + '<select id="pj_partner" onchange="pjPartnerChanged()">' + opts + '</select></label>'
       + '</div>'
       + '<div class="grid2">'
-      + '<label class="fld"><span>Loại việc</span><input type="text" id="pj_cat" list="pj_catList" value="'
-      + esc(p.category) + '"' + (fromDrive ? ' readonly' : '') + '>'
-      + '<datalist id="pj_catList">' + cats.map(function(c){ return '<option value="' + esc(c) + '">'; }).join('')
-      + '</datalist></label>'
+      + (isNew
+        ? '<label class="fld"><span>Loại việc (thư mục trên Drive)</span><select id="pj_cat" onchange="pjFolderPreview()">'
+          + newProjectCats().map(function(c){
+              return '<option value="' + esc(c) + '"' + (c === WK_CAT ? ' selected' : '') + '>' + esc(catLabel(c)) + '</option>';
+            }).join('')
+          + '<option value="">Khác — không tạo thư mục</option></select></label>'
+        : '<label class="fld"><span>Loại việc</span><input type="text" id="pj_cat" list="pj_catList" value="'
+          + esc(p.category) + '"' + (fromDrive ? ' readonly' : '') + '>'
+          + '<datalist id="pj_catList">' + cats.map(function(c){ return '<option value="' + esc(c) + '">'; }).join('')
+          + '</datalist></label>')
       + '<label class="fld"><span>Tình trạng</span><input type="text" id="pj_status" list="wk_statusList" value="'
       + esc(p.id ? statusOf(p.status) : DEFAULT_STATUS) + '">' + statusDatalist() + '</label>'
       + '</div>'
@@ -966,6 +973,7 @@ function projectDlg(p){
       + '<label class="fld"><span>Ngày nhận (đối tác gửi)</span>'
       + '<input type="date" id="pj_create" value="' + (p.create_date || '') + '"></label>'
       + '<div></div></div>'
+      + (isNew ? '<p class="folderprev" id="pj_folderPrev"></p>' : '')
 
       + '<div class="sect"><h4>Tính tiền</h4>'
       + '<div class="grid3">'
@@ -1014,6 +1022,7 @@ function projectDlg(p){
   pjRenderAdv();
   renderArBox();
   pjRecalc();
+  pjFolderPreview();
   setTimeout(function(){ document.getElementById('pj_name').focus(); }, 60);
 }
 
@@ -1054,6 +1063,7 @@ function pjFloorTotal(){
 }
 
 function pjPartnerChanged(){
+  pjFolderPreview();
   var sel = document.getElementById('pj_partner');
   var price = num(sel.options[sel.selectedIndex].dataset.price);
   var cur = docSo(document.getElementById('pj_price').value);
@@ -1205,6 +1215,38 @@ function newFloor(n){
   return { name: n === 1 ? 'Tầng trệt' : 'Tầng ' + (n-1), length: 0, width: 0, area: 0 };
 }
 
+/** Loại việc có thư mục trên Drive (Thiết kế, Thẩm tra) để chọn khi thêm công trình. */
+function newProjectCats(){
+  return workCategories().filter(function(c){ return /thi[eế]t k[eế]|th[aẩ]m tra/i.test(catName(c) + ' ' + c); });
+}
+
+/** Xem trước tên thư mục sẽ tạo: số tiếp theo + tên + (đối tác). Máy chủ tính lại số theo Drive khi lưu. */
+function pjFolderPreview(){
+  var box = document.getElementById('pj_folderPrev');
+  var catEl = document.getElementById('pj_cat');
+  if (!box || !catEl || PD.id) return;
+  var cat = catEl.value;
+  if (!cat || !(DB.settings || {}).drive_root_id){
+    box.innerHTML = cat ? '⚠️ Chưa liên kết thư mục Google Drive — công trình chỉ lưu trong app.'
+                        : 'Không tạo thư mục trên Drive.';
+    return;
+  }
+  var max = 0, pad = 2;
+  DB.projects.forEach(function(p){
+    if (p.category !== cat) return;
+    var m = /^(\d{1,4})/.exec(String(p.folder_name || ''));
+    if (m){ max = Math.max(max, Number(m[1])); pad = Math.max(pad, m[1].length); }
+    else if (num(p.ord)) max = Math.max(max, num(p.ord));
+  });
+  var nm = document.getElementById('pj_name').value.trim() || 'Tên công trình';
+  var ps = document.getElementById('pj_partner');
+  var pt = ps.value ? DB.partners.filter(function(x){ return String(x.id) === ps.value; })[0] : null;
+  var hint = pt ? (String(pt.alias || '').split(',').map(function(s){ return s.trim(); }).filter(String)[0] || pt.name) : '';
+  if (/\([^()]+\)\s*$/.test(nm)) hint = '';
+  var no = ('0000' + (max + 1)).slice(-pad);
+  box.innerHTML = '📁 Sẽ tạo thư mục: <b>' + esc(catLabel(cat)) + ' › ' + esc(no + '. ' + nm + (hint ? ' (' + hint + ')' : '')) + '</b>';
+}
+
 function pjSave(){
   var v = pjRead();
   var rec = {
@@ -1222,10 +1264,14 @@ function pjSave(){
     advances: PD.advances,
   };
   if (!rec.name) return toast('Tên công trình không được để trống.', 'err');
+  var wasNew = !PD.id;
   call('apiSaveProject', [rec]).then(function(id){
     closeDlg(); SEL.tblProjects = id;
-    return reloadAll();
-  }).then(function(){ toast('Đã lưu công trình.', 'ok'); }).catch(fail);
+    return reloadAll().then(function(){ return id; });
+  }).then(function(id){
+    var np = DB.projects.filter(function(x){ return String(x.id) === String(id); })[0];
+    toast(wasNew && np && np.drive_id ? 'Đã lưu và tạo thư mục “' + np.folder_name + '” trên Drive.' : 'Đã lưu công trình.', 'ok');
+  }).catch(fail);
 }
 
 /* ==================================================== TRANG CÔNG NỢ */
