@@ -741,3 +741,7 @@ details.hs-sect[open] > summary h4::after{content:' ▾'}
 .dlg details.hs-sect > summary h4::before{content:'';width:4px;height:15px;border-radius:2px;background:var(--gold)}
 .dlg details.hs-sect:not([open]) > summary h4{margin-bottom:-14px;border-radius:11px}
 .dlg details.hs-sect[open] .hs-list{margin-top:10px}
+
+/* Ô "Ghi nhớ đăng nhập" ở màn hình đăng nhập */
+.lg-remember{display:flex;align-items:center;gap:8px;margin:2px 0 6px;font-size:13.5px;color:#334A6B;cursor:pointer;user-select:none}
+.lg-remember input{width:17px;height:17px;margin:0;accent-color:var(--blue)}

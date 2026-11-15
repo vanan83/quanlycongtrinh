@@ -15,13 +15,25 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.15-40';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.15-41';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
 function lsGet(k){ try { return localStorage.getItem('qlct.' + k) || ''; } catch (e) { return ''; } }
 function lsSet(k, v){ try { if (v) localStorage.setItem('qlct.' + k, v); else localStorage.removeItem('qlct.' + k); } catch (e) {} }
-TOKEN = lsGet('token');
+/**
+ * Ghi nhớ đăng nhập: tích -> lưu phiên ở localStorage (mở lại app không phải đăng nhập, tối đa 60 ngày);
+ * không tích -> chỉ lưu sessionStorage (đóng app / trình duyệt là mất, lần sau phải đăng nhập lại).
+ * Không lưu mật khẩu trong app — chỉ lưu mã phiên do máy chủ cấp.
+ */
+function ssGet(k){ try { return sessionStorage.getItem('qlct.' + k) || ''; } catch (e) { return ''; } }
+function ssSet(k, v){ try { if (v) sessionStorage.setItem('qlct.' + k, v); else sessionStorage.removeItem('qlct.' + k); } catch (e) {} }
+function saveToken(t){
+  var remember = lsGet('remember') !== '0';
+  lsSet('token', remember ? t : '');
+  ssSet('token', remember ? '' : t);
+}
+TOKEN = lsGet('token') || ssGet('token');
 
 function isAdmin(){ return !!ME && ME.role === 'admin'; }
 
@@ -198,7 +210,9 @@ function doLogin(ev){
       return;
     }
     TOKEN = r.token;
-    lsSet('token', TOKEN);
+    lsSet('remember', document.getElementById('lg_remember').checked ? '1' : '0');
+    lsSet('lastUser', u.trim());
+    saveToken(TOKEN);
     document.getElementById('lg_pass').value = '';
     document.getElementById('login').classList.remove('on');
     boot(true);
@@ -211,13 +225,19 @@ function doLogin(ev){
 
 function showLogin(msg){
   TOKEN = ''; ME = null;
-  lsSet('token', '');
+  saveToken('');
+  document.getElementById('lg_remember').checked = lsGet('remember') !== '0';
+  var lu = document.getElementById('lg_user');
+  if (!lu.value && lsGet('lastUser')) lu.value = lsGet('lastUser');
   document.getElementById('app').classList.remove('ready');
   document.getElementById('splash').classList.add('off');
   ['mask','mask2'].forEach(function(id){ document.getElementById(id).classList.remove('on'); });
   document.getElementById('lg_err').textContent = msg || '';
   document.getElementById('login').classList.add('on');
-  setTimeout(function(){ document.getElementById('lg_user').focus(); }, 50);
+  setTimeout(function(){
+    var lu = document.getElementById('lg_user');
+    (lu.value ? document.getElementById('lg_pass') : lu).focus();
+  }, 50);
 }
 
 function logout(){
@@ -2606,7 +2626,7 @@ function savePassword(){
   var p2 = document.getElementById('st_p2').value;
   if (p1 !== p2) return toast('Hai ô mật khẩu mới không giống nhau.', 'err');
   call('apiChangePassword', [p0, p1]).then(function(r){
-    if (r && r.token){ TOKEN = r.token; lsSet('token', TOKEN); }
+    if (r && r.token){ TOKEN = r.token; saveToken(TOKEN); }
     ['st_p0','st_p1','st_p2'].forEach(function(id){ document.getElementById(id).value = ''; });
     toast('Đã đổi mật khẩu.', 'ok');
   }).catch(fail);
