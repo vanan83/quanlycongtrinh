@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.15-22';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.15-23';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -973,7 +973,11 @@ function projectDlg(p){
       + '<label class="fld"><span>Ngày nhận (đối tác gửi)</span>'
       + '<input type="date" id="pj_create" value="' + (p.create_date || '') + '"></label>'
       + '<div></div></div>'
-      + (isNew ? '<p class="folderprev" id="pj_folderPrev"></p>' : '')
+      + (isNew ? '<p class="folderprev" id="pj_folderPrev"></p>'
+          : (!p.drive_id && /thi[eế]t k[eế]|th[aẩ]m tra/i.test(catName(p.category || '') + ' ' + (p.category || ''))
+             ? '<p class="folderprev">Công trình này chưa có thư mục trên Drive. '
+               + '<button type="button" class="btn sm primary" onclick="pjMakeFolder(' + p.id + ')">📁 Tạo thư mục trên Drive</button></p>'
+             : ''))
 
       + '<div class="sect"><h4>Tính tiền</h4>'
       + '<div class="grid3">'
@@ -1241,10 +1245,17 @@ function pjFolderPreview(){
   var nm = document.getElementById('pj_name').value.trim() || 'Tên công trình';
   var ps = document.getElementById('pj_partner');
   var pt = ps.value ? DB.partners.filter(function(x){ return String(x.id) === ps.value; })[0] : null;
-  var hint = pt ? (String(pt.alias || '').split(',').map(function(s){ return s.trim(); }).filter(String)[0] || pt.name) : '';
+  var hint = pt ? String(pt.name || '').trim() : '';
   if (/\([^()]+\)\s*$/.test(nm)) hint = '';
   var no = ('0000' + (max + 1)).slice(-pad);
   box.innerHTML = '📁 Sẽ tạo thư mục: <b>' + esc(catLabel(cat)) + ' › ' + esc(no + '. ' + nm + (hint ? ' (' + hint + ')' : '')) + '</b>';
+}
+
+function pjMakeFolder(id){
+  call('apiCreateProjectFolder', [id]).then(function(name){
+    closeDlg();
+    return reloadAll().then(function(){ toast('Đã tạo thư mục “' + name + '” trên Drive.', 'ok'); });
+  }).catch(fail);
 }
 
 function pjSave(){
