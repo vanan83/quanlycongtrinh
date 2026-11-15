@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.15-12';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.15-13';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -342,7 +342,7 @@ function unpaidArising(p, remain){
   var list = approvedArisingsOf(p.id);
   var total = list.reduce(function(s, a){ return s + num(a.approved_amount); }, 0);
   return { amount: Math.max(0, Math.min(num(remain), total)),
-           text: list.map(function(a){ return a.content; }).join('; ') };
+           text: list.map(function(a){ var k = arisingSeq(p.id).map[a.id]; return (k ? 'Lần ' + k + ': ' : '') + a.content; }).join('; ') };
 }
 
 /** Công trình còn nợ = chưa thu đủ (còn phải thu > 0). Có phát sinh chưa thu thì xếp lên đầu. */
@@ -713,11 +713,12 @@ function renderPartners(){
       + '<td>' + esc(p.address) + '</td>'
       + '<td class="mid">' + esc(p.contact) + '</td>'
       + '<td class="num">' + (num(p.unit_price) ? money(p.unit_price) : '—') + '</td>'
+      + '<td class="num">' + (num(p.permit_price) ? money(p.permit_price) : '—') + '</td>'
       + '<td class="num">' + p._count + '</td>'
       + '<td class="num">' + (p._remain > 0
           ? '<span class="chip red">' + money(p._remain) + '</span>' : '—') + '</td>'
       + '<td>' + esc(p.note) + '</td></tr>';
-  }).join('') : '<tr><td colspan="9" class="empty">Chưa có đối tác nào. Bấm “+ Thêm đối tác”.</td></tr>';
+  }).join('') : '<tr><td colspan="10" class="empty">Chưa có đối tác nào. Bấm “+ Thêm đối tác”.</td></tr>';
   if (SEL.tblPartners) pick('tblPartners', SEL.tblPartners);
 }
 
@@ -745,6 +746,9 @@ function partnerDlg(p){
         + '<label class="fld"><span>Đơn giá thiết kế (đ/m²) — tự điền khi tạo công trình cho đối tác này</span>'
         + '<input type="text" inputmode="decimal" id="pt_price" value="'
         + (num(p.unit_price) ? moneyPlain(p.unit_price) : '') + '"></label>'
+        + '<label class="fld"><span>Phí xin phép xây dựng (đ) — tự cộng vào công nợ khi công trình tích “Có xin phép XD”</span>'
+        + '<input type="text" inputmode="decimal" id="pt_permit" value="'
+        + (num(p.permit_price) ? moneyPlain(p.permit_price) : '') + '"></label>'
         + '<label class="fld"><span>Tên viết tắt trong tên thư mục Drive (cách nhau dấu phẩy) — '
         + 'VD thư mục “Nhà a Khánh (Cong)” thì ghi: Cong</span>'
         + '<input type="text" id="pt_alias" value="' + esc(p.alias) + '"></label>'
@@ -759,6 +763,7 @@ function partnerDlg(p){
             contact: document.getElementById('pt_contact').value,
             address: document.getElementById('pt_address').value,
             unit_price: docSo(document.getElementById('pt_price').value),
+            permit_price: docSo(document.getElementById('pt_permit').value),
             alias: document.getElementById('pt_alias').value,
             note: document.getElementById('pt_note').value,
           };
@@ -918,7 +923,7 @@ function projectDlg(p){
 
   var opts = '<option value="">— Chưa có đối tác —</option>' + DB.partners.map(function(x){
     return '<option value="' + x.id + '"' + (String(x.id) === String(p.partner_id) ? ' selected' : '')
-      + ' data-price="' + num(x.unit_price) + '">' + esc(x.name) + '</option>';
+      + ' data-price="' + num(x.unit_price) + '" data-permit="' + num(x.permit_price) + '">' + esc(x.name) + '</option>';
   }).join('');
 
   var fromDrive = !!p.drive_id;
@@ -962,16 +967,14 @@ function projectDlg(p){
       + heSoVn(num(p.factor) || 1) + '"></label>'
       + '</div>'
       + '<div class="grid2">'
-      + '<label class="fld"><span>Xin phép xây dựng (đ)</span>'
-      + '<input type="text" inputmode="decimal" id="pj_permit" oninput="pjRecalc()" value="'
-      + (num(p.permit_fee) ? moneyPlain(p.permit_fee) : '') + '"></label>'
+      + '<div class="fld"><label class="chk"><input type="checkbox" id="pj_permit_on" onchange="pjPermitToggle()"'
+      + (p.permit === '1' || num(p.permit_fee) ? ' checked' : '') + '> Có xin phép xây dựng — số tiền (đ)</label>'
+      + '<input type="text" inputmode="decimal" id="pj_permit" oninput="pjRecalc()" placeholder="Theo phí của đối tác" value="'
+      + (num(p.permit_fee) ? moneyPlain(p.permit_fee) : '') + '"></div>'
       + '<label class="fld"><span>Phát sinh khác (đ) — ngoài các phát sinh đã duyệt</span>'
       + '<input type="text" inputmode="decimal" id="pj_arising" oninput="pjRecalc()" value="'
       + (num(p.arising_fee) ? moneyPlain(p.arising_fee) : '') + '"></label>'
       + '</div>'
-      + (approvedArising(p.id)
-          ? '<p class="hint" style="margin:-4px 0 10px">Phát sinh đã duyệt: <b>' + money(approvedArising(p.id))
-            + '</b> — xem / sửa ở trang <b>Công việc</b> hoặc <b>Phát sinh</b>.</p>' : '')
       + '<button class="btn sm" onclick="pjOpenFloors()" id="pj_floorBtn">⌗ Tính diện tích theo tầng</button>'
       + '<div class="sumline"><span>Thành tiền:</span> <b id="pj_amount" style="color:#0878E8">0 đ</b>'
       + '<span id="pj_formula" class="hint" style="margin:0"></span></div>'
@@ -984,6 +987,10 @@ function projectDlg(p){
       + '<div class="sumline"><span>Đã tạm ứng:</span> <b id="pj_adv" style="color:#159957">0 đ</b>'
       + '<span>Còn lại:</span> <b id="pj_remain" style="color:#D64545">0 đ</b></div></div>'
 
+      + (p.id ? '<div class="sect"><h4>Phát sinh</h4><div id="ar_box"></div>'
+          + '<button class="btn sm primary" style="margin-top:10px" onclick="arisingDlg(PD.id)">± Thêm phát sinh</button></div>'
+        : '<p class="hint">Lưu công trình trước, sau đó mở lại để thêm phát sinh.</p>')
+
       + '<label class="fld" style="margin-top:14px"><span>Ghi chú</span>'
       + '<textarea id="pj_note">' + esc(p.note) + '</textarea></label>',
     buttons: [
@@ -992,6 +999,7 @@ function projectDlg(p){
     ],
   });
   pjRenderAdv();
+  renderArBox();
   pjRecalc();
   setTimeout(function(){ document.getElementById('pj_name').focus(); }, 60);
 }
@@ -1036,10 +1044,26 @@ function pjPartnerChanged(){
   var sel = document.getElementById('pj_partner');
   var price = num(sel.options[sel.selectedIndex].dataset.price);
   var cur = docSo(document.getElementById('pj_price').value);
-  if (price && !cur){
-    document.getElementById('pj_price').value = moneyPlain(price);
-    pjRecalc();
+  if (price && !cur) document.getElementById('pj_price').value = moneyPlain(price);
+  // Đang tích xin phép mà chưa có số tiền -> lấy phí xin phép của đối tác mới chọn
+  if (document.getElementById('pj_permit_on').checked && !docSo(document.getElementById('pj_permit').value)){
+    var pp = num(sel.options[sel.selectedIndex].dataset.permit);
+    if (pp) document.getElementById('pj_permit').value = moneyPlain(pp);
   }
+  pjRecalc();
+}
+
+/** Tích "Có xin phép XD": điền phí của đối tác (nếu ô đang trống); bỏ tích: xóa số tiền. */
+function pjPermitToggle(){
+  var on = document.getElementById('pj_permit_on').checked, box = document.getElementById('pj_permit');
+  if (on && !docSo(box.value)){
+    var sel = document.getElementById('pj_partner');
+    var pp = num(sel.options[sel.selectedIndex].dataset.permit);
+    if (pp) box.value = moneyPlain(pp);
+    else toast('Đối tác này chưa có phí xin phép — nhập số tiền vào ô bên dưới, hoặc vào trang Đối tác để đặt phí.', 'err');
+  }
+  if (!on) box.value = '';
+  pjRecalc();
 }
 
 function pjRenderAdv(){
@@ -1179,6 +1203,7 @@ function pjSave(){
     permit_fee: v.permit_fee, arising_fee: v.arising_fee,
     note: document.getElementById('pj_note').value,
     category: document.getElementById('pj_cat').value,
+    permit: document.getElementById('pj_permit_on').checked,
     status: document.getElementById('pj_status').value,
     floors: PD.floors,
     advances: PD.advances,
@@ -1288,7 +1313,7 @@ var CAT_VI = {
   'tu van': 'Tư vấn', 'xin phep': 'Xin phép', 'hoan cong': 'Hoàn công', 'cai tao': 'Cải tạo',
   'ket cau': 'Kết cấu', 'kien truc': 'Kiến trúc', 'dien nuoc': 'Điện nước', 'noi that': 'Nội thất',
 };
-var CAT_ICON = { 'thiet ke': '✎', 'tham tra': '☑', 'giam sat': '◉', 'thi cong': '⚒', 'du toan': '∑' };
+var CAT_ICON = { 'thiet ke': '✏️', 'tham tra': '🔍', 'giam sat': '👷', 'thi cong': '🧱', 'du toan': '🧮' };
 
 function viKey(s){
   // Bỏ dấu: tách chữ và dấu (NFD) rồi xóa khối dấu kết hợp U+0300–U+036F
@@ -1315,9 +1340,9 @@ function renderWorkNav(){
   var cats = workCategories();
   var cnt = {}, none = 0;
   DB.projects.forEach(function(p){ if (p.category) cnt[p.category] = (cnt[p.category] || 0) + 1; else none++; });
-  var tabs = cats.map(function(c){ return { cat: c, label: catName(c), n: cnt[c], ic: CAT_ICON[catParts(c).key] || '▸' }; });
-  if (none) tabs.push({ cat: WK_NONE, label: 'Khác', n: none, ic: '…' });
-  tabs.push({ cat: WK_ALL, label: 'Tất cả', n: DB.projects.length, ic: '☰' });
+  var tabs = cats.map(function(c){ return { cat: c, label: catName(c), n: cnt[c], ic: CAT_ICON[catParts(c).key] || '📁' }; });
+  if (none) tabs.push({ cat: WK_NONE, label: 'Khác', n: none, ic: '🗂️' });
+  tabs.push({ cat: WK_ALL, label: 'Tất cả', n: DB.projects.length, ic: '📋' });
   if (!WK_CAT || !tabs.some(function(t){ return t.cat === WK_CAT; })) WK_CAT = tabs[0].cat;
   var onWork = document.getElementById('page-work').classList.contains('on');
   document.getElementById('navWork').innerHTML = tabs.map(function(t){
@@ -1343,7 +1368,10 @@ function workCategories(){
 
 function arisingsOf(projectId){
   return (DB.arisings || []).filter(function(a){ return String(a.project_id) === String(projectId); })
-    .sort(function(a, b){ return String(a.created_at).localeCompare(String(b.created_at)); });
+    .sort(function(a, b){
+      var c = arisingDate(a).localeCompare(arisingDate(b));
+      return c || String(a.created_at).localeCompare(String(b.created_at));
+    });
 }
 
 function fmtStamp(s){
@@ -1492,7 +1520,8 @@ function renderWork(){
     html += '<tr class="' + (gone ? 'gone' : '') + '" data-id="' + r.id + '"'
       + ' onclick="pick(\'tblWork\',' + r.id + ',event)" ondblclick="workDlg(' + r.id + ')">'
       + '<td class="stt">' + (r.ord === null || r.ord === undefined ? '' : r.ord) + '</td>'
-      + '<td><b>' + esc(r.name) + '</b>' + (gone ? ' <span class="chip red">thư mục đã xóa</span>' : '') + '</td>'
+      + '<td><b>' + esc(r.name) + '</b>' + (r.permit === '1' ? ' <span class="chip blue" title="Có xin phép xây dựng">XPXD</span>' : '')
+      + (gone ? ' <span class="chip red">thư mục đã xóa</span>' : '') + '</td>'
       + '<td class="mid">' + partner + '</td>'
       + '<td class="num">' + (num(r.area) ? '<b>' + dienTichVn(r.area) + '</b>'
                                           : '<span class="chip amber">chưa nhập</span>') + '</td>'
@@ -1555,22 +1584,20 @@ function workDlg(id){
       + '<input type="text" id="wk_status" list="wk_statusList" value="' + esc(p.status) + '">'
       + statusDatalist() + '</label>'
       + '</div>'
+      + '<label class="chk chk-box"><input type="checkbox" id="wk_permit"' + (p.permit === '1' ? ' checked' : '') + '>'
+      + ' <span><b>Có xin phép xây dựng</b><small>' + (isAdmin()
+          ? 'Tự cộng phí xin phép của đối tác vào công nợ' + (partnerPermit(p.partner_id) ? ' (' + money(partnerPermit(p.partner_id)) + ')' : '')
+          : 'Tích nếu công trình có làm hồ sơ xin phép xây dựng') + '</small></span></label>'
       + '<label class="fld" style="margin:4px 0 0"><span>Ghi chú</span>'
       + '<textarea id="wk_note" placeholder="VD: Cải tạo (tính 40% diện tích), nâng thêm 2 tầng…">'
       + esc(p.note) + '</textarea></label></div>'
-      + '<div class="sect"><h4>Phát sinh</h4><div id="wk_arBox"></div>'
-      + '<div class="arform">'
-      + '<label class="fld"><span>Nội dung phát sinh</span>'
-      + '<input type="text" id="wk_arText" placeholder="VD: Mái xiên + hàng rào"></label>'
-      + '<label class="fld"><span>Số tiền đề xuất (đ)</span>'
-      + '<input type="text" inputmode="decimal" id="wk_arAmt" placeholder="300.000"></label>'
-      + '<button class="btn primary" onclick="wkAddArising()">+ Gửi</button></div>'
-      + '<p class="hint">' + (isAdmin() ? 'Quản lý thêm phát sinh thì được duyệt luôn.'
-                                        : 'Phát sinh gửi lên sẽ chờ quản lý duyệt. Gửi xong là lưu luôn, không cần bấm “Lưu”.')
-      + '</p></div>',
+      + '<div class="sect"><h4>Phát sinh</h4><div id="ar_box"></div>'
+      + '<button class="btn sm primary" style="margin-top:10px" onclick="arisingDlg(PD.id)">± Thêm phát sinh</button>'
+      + '<p class="hint">' + (isAdmin() ? 'Quản lý thêm phát sinh thì được duyệt luôn, tự cộng vào công nợ.'
+                                        : 'Phát sinh gửi lên sẽ chờ quản lý duyệt.') + '</p></div>',
     buttons: buttons,
   });
-  wkRenderArisings();
+  renderArBox();
   pjRecalc();
   setTimeout(function(){ var el = document.getElementById('pj_area'); el.focus(); el.select(); }, 60);
 }
@@ -1584,42 +1611,88 @@ function partnerOptions(selectedId){
   }).join('');
 }
 
-function wkRenderArisings(){
-  var box = document.getElementById('wk_arBox');
-  if (!box || !PD) return;
-  var list = arisingsOf(PD.id);
+function partnerPermit(pid){
+  var x = DB.partners.filter(function(p){ return String(p.id) === String(pid); })[0];
+  return x ? num(x.permit_price) : 0;
+}
+
+function arisingDate(a){ return a.arising_date || String(a.created_at || '').slice(0, 10); }
+
+/** Đánh số lần phát sinh theo ngày (không tính khoản bị từ chối). */
+function arisingSeq(projectId){
+  var map = {}, n = 0;
+  arisingsOf(projectId).forEach(function(a){ if (a.status !== 'rejected') map[a.id] = ++n; });
+  return { map: map, next: n + 1 };
+}
+
+/** Danh sách phát sinh trong hộp thoại đang mở (ô #ar_box). */
+function renderArBox(){
+  var box = document.getElementById('ar_box');
+  if (!box || !PD || !PD.id) return;
+  var list = arisingsOf(PD.id), seq = arisingSeq(PD.id).map;
   box.innerHTML = list.length ? list.map(function(a){
     var st = a.status === 'approved'
-      ? '<span class="chip green">Đã duyệt' + (isAdmin() ? ' ' + moneyPlain(a.approved_amount) : '') + '</span>'
+      ? '<span class="chip green">Đã duyệt' + (isAdmin() && num(a.approved_amount) !== num(a.amount) ? ' ' + moneyPlain(a.approved_amount) : '') + '</span>'
       : (a.status === 'rejected' ? '<span class="chip red">Từ chối</span>' : '<span class="chip amber">Chờ duyệt</span>');
     var acts = '';
     if (isAdmin()) acts += '<button class="btn ghost sm" onclick="reviewDlg(' + a.id + ',true)">Duyệt…</button>';
     if (isAdmin() || (a.created_uid === ME.username && a.status === 'pending')){
       acts += '<button class="btn ghost sm" style="color:#D64545" onclick="wkDelArising(' + a.id + ')">✕</button>';
     }
-    return '<div class="ar-item"><div class="tx"><b>' + esc(a.content) + '</b><small>'
-      + esc(a.created_by) + ' · ' + fmtStamp(a.created_at)
+    return '<div class="ar-item"><div class="ar-no">' + (seq[a.id] ? 'Lần ' + seq[a.id] : '—') + '</div>'
+      + '<div class="tx"><b>' + esc(a.content) + '</b><small>' + vn(arisingDate(a)) + ' · ' + esc(a.created_by)
       + (a.review_note ? ' · QL ghi: ' + esc(a.review_note) : '') + '</small></div>'
       + '<div class="amt">' + (num(a.amount) ? money(a.amount) : '—') + '</div>'
       + '<div>' + st + '</div><div style="white-space:nowrap">' + acts + '</div></div>';
-  }).join('') : '<p class="hint" style="margin:0">Chưa có phát sinh nào.</p>';
+  }).join('') : '<p class="hint" style="margin:0">Chưa có phát sinh nào. Bấm “± Thêm phát sinh” để nhập lần 1.</p>';
+}
+function wkRenderArisings(){ renderArBox(); }   // tên cũ, giữ cho các chỗ gọi cũ
+
+/** Cửa sổ nhập một lần phát sinh: Lần N (tự đánh số), ngày, số tiền, nội dung. */
+function arisingDlg(projectId){
+  var p = DB.projects.filter(function(x){ return String(x.id) === String(projectId); })[0];
+  if (!p) return toast('Hãy chọn một công trình.', 'err');
+  var lan = arisingSeq(p.id).next;
+  openDlg({
+    nested: document.getElementById('mask').classList.contains('on'),
+    title: 'Phát sinh lần ' + lan + ' — ' + esc(p.name),
+    body: '<div class="grid2">'
+        + '<label class="fld"><span>Ngày phát sinh</span><input type="date" id="ps_date" value="' + TODAY + '"></label>'
+        + '<label class="fld"><span>Số tiền (đ)</span><input type="text" inputmode="decimal" id="ps_amt" placeholder="VD: 2.500.000"></label>'
+        + '</div>'
+        + '<label class="fld"><span>Nội dung / ghi chú</span>'
+        + '<textarea id="ps_text" placeholder="VD: Hồ sơ phát sinh lần ' + lan + ' — điều chỉnh mái, thêm tầng tum…"></textarea></label>'
+        + '<p class="hint" style="margin:0">' + (isAdmin() ? 'Quản lý nhập thì được duyệt luôn và cộng ngay vào công nợ của công trình.'
+                                                       : 'Phát sinh sẽ chờ quản lý duyệt rồi mới cộng vào công nợ.') + '</p>',
+    buttons: [
+      { label: 'Hủy', act: closeDlg },
+      { label: 'Lưu phát sinh', cls: 'primary', act: function(){
+          var rec = { project_id: p.id, date: document.getElementById('ps_date').value || TODAY,
+                      amount: docSo(document.getElementById('ps_amt').value),
+                      content: document.getElementById('ps_text').value.trim() };
+          if (!rec.content) return toast('Hãy ghi nội dung phát sinh.', 'err');
+          if (!(rec.amount > 0)) return toast('Hãy nhập số tiền phát sinh.', 'err');
+          var before = isAdmin() ? metricsMap()[String(p.id)] : null;
+          var wasPaid = !!before && before.amount > 0 && before.remain <= 0;
+          call('apiAddArising', [rec]).then(function(){
+            closeDlg();
+            return reloadAll();
+          }).then(function(){
+            renderArBox();
+            if (document.getElementById('pj_amount')) pjRecalc();
+            toast(wasPaid ? 'Đã thêm phát sinh lần ' + lan + ': ' + money(rec.amount) + '. Công trình đã thu đủ trước đó — khoản này vào Công nợ (PS chưa thu).'
+                  : (isAdmin() ? 'Đã thêm phát sinh lần ' + lan + ': ' + money(rec.amount) + '.' : 'Đã gửi phát sinh lần ' + lan + ', chờ quản lý duyệt.'), 'ok');
+          }).catch(fail);
+        } },
+    ],
+  });
+  setTimeout(function(){ document.getElementById('ps_amt').focus(); }, 60);
 }
 
-function wkAddArising(){
-  var content = document.getElementById('wk_arText').value.trim();
-  var amount = docSo(document.getElementById('wk_arAmt').value);
-  if (!content) return toast('Hãy ghi nội dung phát sinh.', 'err');
-  var before = isAdmin() ? metricsMap()[String(PD.id)] : null;
-  var wasPaid = !!before && before.amount > 0 && before.remain <= 0 && amount > 0;
-  call('apiAddArising', [{ project_id: PD.id, content: content, amount: amount }]).then(function(){
-    document.getElementById('wk_arText').value = '';
-    document.getElementById('wk_arAmt').value = '';
-    return reloadAll();
-  }).then(function(){
-    wkRenderArisings();
-    toast(wasPaid ? 'Công trình đã thu đủ trước đó — khoản phát sinh ' + money(amount) + ' đã vào Công nợ (PS chưa thu).'
-          : (isAdmin() ? 'Đã thêm phát sinh (đã duyệt).' : 'Đã gửi phát sinh, chờ quản lý duyệt.'), 'ok');
-  }).catch(fail);
+/** Nút "± Phát sinh" trên thanh công cụ: thêm phát sinh cho công trình đang chọn. */
+function arisingForSelected(tableId){
+  var id = selected(tableId, 'Công trình');
+  if (id) arisingDlg(id);
 }
 
 function wkDelArising(aid){
@@ -1627,7 +1700,7 @@ function wkDelArising(aid){
     call('apiDeleteArising', [aid]).then(function(){
       closeDlg();
       return reloadAll();
-    }).then(function(){ wkRenderArisings(); toast('Đã xóa phát sinh.', 'ok'); }).catch(fail);
+    }).then(function(){ renderArBox(); if (document.getElementById('pj_amount')) pjRecalc(); toast('Đã xóa phát sinh.', 'ok'); }).catch(fail);
   }, 'danger', true);
 }
 
@@ -1635,6 +1708,7 @@ function wkSave(){
   var rec = {
     id: PD.id,
     partner_id: document.getElementById('wk_partner').value || '',
+    permit: document.getElementById('wk_permit').checked,
     area: docSo(document.getElementById('pj_area').value),
     status: document.getElementById('wk_status').value,
     note: document.getElementById('wk_note').value,
@@ -1671,7 +1745,7 @@ function renderArisings(){
     return '<tr data-id="' + a.id + '" onclick="pick(\'tblArisings\',' + a.id + ',event)"'
       + ' ondblclick="reviewDlg(' + a.id + ',false)">'
       + '<td class="stt">' + (i+1) + '</td>'
-      + '<td class="mid" style="font-size:12px">' + fmtStamp(a.created_at) + '</td>'
+      + '<td class="mid" style="font-size:12px">' + (arisingSeq(a.project_id).map[a.id] ? '<b>Lần ' + arisingSeq(a.project_id).map[a.id] + '</b><br>' : '') + vn(arisingDate(a)) + '</td>'
       + '<td><b>' + esc(projectNameOf(a.project_id)) + '</b></td>'
       + '<td>' + esc(a.content) + (a.review_note ? '<br><span class="hint">QL ghi: ' + esc(a.review_note) + '</span>' : '') + '</td>'
       + '<td class="num">' + (num(a.amount) ? money(a.amount) : '—') + '</td>'
