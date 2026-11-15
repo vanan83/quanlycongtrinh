@@ -628,3 +628,6 @@ tbody tr:hover td + td{border-left-color:#DCE7F5}
 tbody tr.sel td + td{border-left-color:#C6DAF5}
 tbody tr.grp td{border-left:0}
 tfoot td + td{border-left:1px solid #E1E8F1}
+
+/* Tình trạng "Mới nhận" (mặc định khi vừa tạo thư mục) */
+.chip.new{background:#E0F5F8;color:#0B6C7C}

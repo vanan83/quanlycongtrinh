@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.15-20';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.15-21';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -960,7 +960,7 @@ function projectDlg(p){
       + '<datalist id="pj_catList">' + cats.map(function(c){ return '<option value="' + esc(c) + '">'; }).join('')
       + '</datalist></label>'
       + '<label class="fld"><span>Tình trạng</span><input type="text" id="pj_status" list="wk_statusList" value="'
-      + esc(p.status) + '">' + statusDatalist() + '</label>'
+      + esc(p.id ? statusOf(p.status) : DEFAULT_STATUS) + '">' + statusDatalist() + '</label>'
       + '</div>'
       + '<div class="grid2">'
       + '<label class="fld"><span>Ngày nhận (đối tác gửi)</span>'
@@ -1318,6 +1318,14 @@ function debtMarkPaid(){
    trong nhóm xếp theo số thứ tự đầu tên thư mục. Không có cột tiền nào ở đây — nhân viên
    cũng không nhận được dữ liệu tiền từ server.                                          */
 
+/** Tình trạng trống (công trình cũ, chưa đồng bộ lại) coi như "Mới nhận". */
+var DEFAULT_STATUS = 'Mới nhận';
+function statusOf(s){ return String(s || '').trim() || DEFAULT_STATUS; }
+function statusChip(s){
+  s = statusOf(s);
+  var cls = /ho[àa]n th[àa]nh|^ok$/i.test(s) ? 'green' : /^m[ớo]i nh[ậa]n$/i.test(s) ? 'new' : 'blue';
+  return '<span class="chip ' + cls + '">' + esc(s) + '</span>';
+}
 var STATUS_LIST = ['Mới nhận', 'Đang làm', 'Chờ thông tin', 'Đã gửi bản vẽ', 'Đang chỉnh sửa', 'Hoàn thành'];
 
 function statusDatalist(){
@@ -1524,7 +1532,7 @@ function renderWork(){
     if (flt === 'nopartner' && r.partner_id) return false;
     if (flt === 'missing' && r.folder_state !== 'missing') return false;
     if (!kw) return true;
-    return [r.name, r.partner_name, r.partner_hint, r.note, r.status].some(function(v){
+    return [r.name, r.partner_name, r.partner_hint, r.note, statusOf(r.status)].some(function(v){
       return String(v || '').toLowerCase().indexOf(kw) >= 0;
     });
   });
@@ -1543,8 +1551,7 @@ function renderWork(){
     var partner = r.partner_name ? esc(r.partner_name)
       : (r.partner_hint ? '<span class="chip amber" title="Chưa gán đối tác — gợi ý từ tên thư mục">'
                           + esc(r.partner_hint) + '?</span>' : '—');
-    var st = r.status ? '<span class="chip ' + (/ho[àa]n th[àa]nh|^ok$/i.test(r.status) ? 'green' : 'blue')
-                      + '">' + esc(r.status) + '</span>' : '—';
+    var st = statusChip(r.status);
     var ps = '';
     if (r._pending) ps += '<span class="chip amber">' + r._pending + ' chờ duyệt</span> ';
     if (r._ok) ps += isAdmin() ? '<span class="chip green">+' + moneyPlain(approvedArising(r.id)) + '</span>'
@@ -1634,7 +1641,7 @@ function workDlg(id){
       + '<input type="text" inputmode="decimal" id="pj_area" value="' + (num(p.area) ? dienTichVn(p.area) : '') + '"></label>'
       + '<button class="btn sm" onclick="pjOpenFloors()" id="pj_floorBtn" style="margin:-4px 0 6px"></button></div>'
       + '<label class="fld"><span>Tình trạng</span>'
-      + '<input type="text" id="wk_status" list="wk_statusList" value="' + esc(p.status) + '">'
+      + '<input type="text" id="wk_status" list="wk_statusList" value="' + esc(statusOf(p.status)) + '">'
       + statusDatalist() + '</label>'
       + '</div>'
       + '<label class="chk chk-box"><input type="checkbox" id="wk_permit"' + (p.permit === '1' ? ' checked' : '') + '>'
