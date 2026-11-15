@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="vi" translate="no" class="notranslate">
+<head>
+<meta charset="utf-8">
+<meta name="google" content="notranslate">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Quản lý công trình</title>
+<meta name="description" content="Quản lý công trình: danh sách theo thư mục Google Drive, diện tích, phát sinh, đơn giá, công nợ.">
+<meta name="theme-color" content="#0B5CAD">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="busy"></div>
+<div id="toast"></div>
+
+<!-- ============================================================ ĐĂNG NHẬP -->
+<div id="login">
+  <form class="box" onsubmit="return doLogin(event)">
+    <div class="logo">PVA</div>
+    <h2>Quản lý công trình</h2>
+    <p>Đăng nhập để tiếp tục</p>
+    <label class="fld"><span>Tên đăng nhập</span>
+      <input type="text" id="lg_user" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Tên đăng nhập hoặc số điện thoại" autofocus></label>
+    <label class="fld"><span>Mật khẩu</span>
+      <input type="password" id="lg_pass" autocomplete="current-password"></label>
+    <div class="err" id="lg_err"></div>
+    <button class="btn primary" type="submit" id="lg_btn">Đăng nhập</button>
+  </form>
+</div>
+
+<div id="splash"><div class="spin"></div></div>
+
+<!-- ============================================================ KHUNG CHÍNH -->
+<div id="app">
+  <nav id="sidebar">
+    <div class="brand">
+      <div class="logo">PVA</div>
+      <div class="txt"><b>Công Trình</b><span id="verLabel"></span></div>
+    </div>
+    <button class="navbtn active admin-only" data-page="dashboard"><i class="ic">▦</i><span class="lb">Tổng quan</span></button>
+    <button class="navbtn" data-page="work"><i class="ic">☰</i><span class="lb">Công việc</span></button>
+    <button class="navbtn admin-only" data-page="arisings"><i class="ic">±</i><span class="lb">Phát sinh</span><span class="navbadge" id="arBadge"></span></button>
+    <button class="navbtn" data-page="area"><i class="ic">⌗</i><span class="lb">Tính diện tích</span></button>
+    <button class="navbtn admin-only" data-page="partners"><i class="ic">☺</i><span class="lb">Đối tác</span></button>
+    <button class="navbtn admin-only" data-page="projects"><i class="ic">▤</i><span class="lb">Công trình</span></button>
+    <button class="navbtn admin-only" data-page="debt"><i class="ic">◈</i><span class="lb">Công nợ</span></button>
+    <button class="navbtn" data-page="settings"><i class="ic">⚙</i><span class="lb" id="navSettingsLb">Thiết lập</span></button>
+    <button class="navbtn" onclick="logout()"><i class="ic">⎋</i><span class="lb">Đăng xuất</span></button>
+    <div class="sidefoot">
+      <div class="who" id="sideName">—</div>
+      <div class="role" id="sideRole">—</div>
+    </div>
+  </nav>
+
+  <main id="main">
+
+    <!-- ------------------------------------------------------- TỔNG QUAN -->
+    <section class="page on" id="page-dashboard">
+      <div class="phead">
+        <div><h1>Tổng quan</h1>
+          <p>Số liệu tổng hợp công trình theo khoảng thời gian đã chọn</p></div>
+        <div class="grow"></div>
+        <button class="btn" id="rangeBtn" onclick="openRange()">Khoảng thời gian</button>
+        <button class="btn primary" onclick="reloadAll()">↻ Làm mới</button>
+      </div>
+
+      <div class="cards">
+        <div class="card"><div class="t">Số công trình</div><div class="v" id="c_count">0</div></div>
+        <div class="card blue"><div class="t">Tổng thành tiền</div><div class="v" id="c_amount">0 đ</div></div>
+        <div class="card green"><div class="t">Đã tạm ứng</div><div class="v" id="c_adv">0 đ</div></div>
+        <div class="card red"><div class="t">Còn phải thu</div><div class="v" id="c_remain">0 đ</div></div>
+      </div>
+
+      <div class="chartrow" style="margin-bottom:14px">
+        <div class="panel">
+          <h3>Công trình gần đây</h3>
+          <div class="tablewrap" style="max-height:250px;box-shadow:none;border:0">
+            <table id="tblRecent">
+              <thead><tr><th>Công trình</th><th class="mid">Đối tác</th>
+                <th class="num">Thành tiền</th><th class="num">Còn lại</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <button class="btn sm" style="margin-top:10px" onclick="go('projects')">Xem tất cả công trình</button>
+        </div>
+        <div class="panel">
+          <h3 id="barTitle">Tiền tạm ứng về theo tháng</h3>
+          <div id="barChart"></div>
+        </div>
+      </div>
+
+      <div class="chartrow">
+        <div class="panel">
+          <h3>Đối tác chưa thanh toán (còn phải thu)</h3>
+          <div class="donutbox"><div id="debtDonut"></div><ul class="legend" id="debtLegend"></ul></div>
+        </div>
+        <div class="panel">
+          <h3>Đối tác (theo tổng giá trị công trình)</h3>
+          <div class="donutbox"><div id="topDonut"></div><ul class="legend" id="topLegend"></ul></div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:14px">
+        <h3>Cảnh báo thu tiền</h3>
+        <ul class="alerts" id="alertList"></ul>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------------- CÔNG VIỆC -->
+    <section class="page" id="page-work">
+      <div class="phead">
+        <div><h1>Công việc</h1>
+          <p>Danh sách công trình theo thư mục Google Drive — nhập diện tích, tình trạng, phát sinh</p></div>
+        <div class="grow"></div>
+        <a class="btn" id="wkFolder" target="_blank" rel="noopener">📁 Mở thư mục Drive</a>
+        <button class="btn primary" onclick="syncDrive()">⟳ Đồng bộ Drive</button>
+      </div>
+      <div class="toolbar">
+        <input type="text" class="grow" id="wkSearch" placeholder="Tìm công trình, đối tác, ghi chú…"
+               oninput="renderWork()">
+        <select id="wkCat" style="width:auto" onchange="renderWork()"></select>
+        <select id="wkFilter" style="width:auto" onchange="renderWork()">
+          <option value="">Tất cả</option>
+          <option value="noarea">Chưa nhập diện tích</option>
+          <option value="pending">Có phát sinh chờ duyệt</option>
+          <option value="nopartner" class="admin-only">Chưa gán đối tác</option>
+          <option value="missing">Thư mục đã xóa</option>
+        </select>
+        <button class="btn primary" onclick="editWork()">✎ Nhập diện tích / phát sinh</button>
+      </div>
+      <p class="hint" id="wkSync" style="margin:-4px 0 10px"></p>
+      <div class="tablewrap">
+        <table id="tblWork">
+          <thead><tr><th class="stt">STT</th><th>Công trình</th><th class="mid">Đối tác</th>
+            <th class="num">Diện tích (m²)</th><th class="mid">Tình trạng</th>
+            <th class="mid">Phát sinh</th><th class="mid">Cập nhật</th><th>Ghi chú</th>
+            <th class="mid">Thư mục</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="hint">Bấm đúp vào một dòng để nhập diện tích, tình trạng, ghi chú và phát sinh.</p>
+    </section>
+
+    <!-- ------------------------------------------------------- PHÁT SINH (QUẢN LÝ) -->
+    <section class="page" id="page-arisings">
+      <div class="phead">
+        <div><h1>Phát sinh</h1>
+          <p>Nhân viên đề xuất, quản lý duyệt — chỉ phát sinh đã duyệt mới cộng vào thành tiền</p></div>
+      </div>
+      <div class="toolbar">
+        <select id="arFilter" style="width:auto" onchange="renderArisings()">
+          <option value="pending">Chờ duyệt</option>
+          <option value="approved">Đã duyệt</option>
+          <option value="rejected">Từ chối</option>
+          <option value="">Tất cả</option>
+        </select>
+        <div class="grow"></div>
+        <button class="btn danger" onclick="arDelete()">Xóa</button>
+        <button class="btn" onclick="arReview('rejected')">✕ Từ chối</button>
+        <button class="btn success" onclick="arReview('approved')">✔ Duyệt</button>
+      </div>
+      <div class="tablewrap">
+        <table id="tblArisings">
+          <thead><tr><th class="stt">#</th><th class="mid">Ngày gửi</th><th>Công trình</th>
+            <th>Nội dung</th><th class="num">Đề xuất</th><th class="num">Được duyệt</th>
+            <th class="mid">Trạng thái</th><th class="mid">Người gửi</th><th class="mid">Người duyệt</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="hint">Bấm đúp một dòng để duyệt và sửa số tiền được duyệt.</p>
+    </section>
+
+    <!-- ------------------------------------------------------- TÍNH DIỆN TÍCH -->
+    <section class="page" id="page-area">
+      <div class="phead">
+        <div><h1>Tính diện tích</h1>
+          <p>Bảng tính nhanh diện tích theo từng tầng — không gắn với công trình nào</p></div>
+        <div class="grow"></div>
+        <button class="btn" onclick="areaAdd()">+ Thêm tầng</button>
+        <button class="btn danger" onclick="areaReset()">Xóa hết</button>
+      </div>
+      <div class="panel">
+        <div class="tablewrap" style="box-shadow:none;border:0">
+          <table id="tblArea">
+            <thead><tr><th class="stt">#</th><th>Tên tầng</th><th class="num">Dài (m)</th>
+              <th class="num">Rộng (m)</th><th class="num">Diện tích (m²)</th><th style="width:50px"></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="sumline"><span>Tổng diện tích:</span> <b id="areaTotal">0</b> <span>m²</span></div>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------------- ĐỐI TÁC -->
+    <section class="page" id="page-partners">
+      <div class="phead">
+        <div><h1>Đối tác</h1><p>Khách hàng / chủ đầu tư và đơn giá thiết kế áp dụng</p></div>
+      </div>
+      <div class="toolbar">
+        <input type="text" class="grow" id="ptSearch" placeholder="Tìm theo tên, điện thoại, địa chỉ…"
+               oninput="renderPartners()">
+        <button class="btn" onclick="editPartner()">Sửa</button>
+        <button class="btn danger" onclick="delPartner()">Xóa</button>
+        <button class="btn primary" onclick="addPartner()">+ Thêm đối tác</button>
+      </div>
+      <div class="tablewrap">
+        <table id="tblPartners">
+          <thead><tr><th class="stt">#</th><th data-k="name">Tên đối tác</th>
+            <th data-k="phone" class="mid">Điện thoại</th><th data-k="address">Địa chỉ</th>
+            <th data-k="contact" class="mid">Người liên hệ</th>
+            <th data-k="unit_price" class="num">Đơn giá</th>
+            <th data-k="_count" class="num">Số CT</th>
+            <th data-k="_remain" class="num">Còn phải thu</th>
+            <th data-k="note">Ghi chú</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------------- CÔNG TRÌNH -->
+    <section class="page" id="page-projects">
+      <div class="phead">
+        <div><h1>Công trình</h1><p>Diện tích × Đơn giá × Hệ số = Thành tiền</p></div>
+      </div>
+      <div class="toolbar">
+        <input type="text" class="grow" id="prSearch" placeholder="Tìm theo tên công trình hoặc đối tác…"
+               oninput="renderProjects()">
+        <button class="btn primary" onclick="dupProject()">⧉ Nhân bản</button>
+        <button class="btn" onclick="exportSheet('projects')">⬇ Xuất Excel</button>
+        <button class="btn" onclick="editProject()">Sửa / Tạm ứng</button>
+        <button class="btn danger" onclick="delProject()">Xóa</button>
+        <button class="btn primary" onclick="addProject()">+ Thêm công trình</button>
+      </div>
+      <div class="tablewrap">
+        <table id="tblProjects">
+          <thead><tr><th class="stt">#</th><th data-k="name">Công trình</th>
+            <th data-k="partner_name" class="mid">Đối tác</th>
+            <th data-k="area" class="mid">Diện tích</th>
+            <th data-k="unit_price" class="mid">Đơn giá</th>
+            <th data-k="factor" class="mid">Hệ số</th>
+            <th data-k="permit_fee" class="num">Xin phép XD</th>
+            <th data-k="_arising" class="num">Phát sinh</th>
+            <th data-k="_amount" class="num">Thành tiền</th>
+            <th data-k="_advanced" class="num">Đã tạm ứng</th>
+            <th data-k="_remain" class="num">Còn lại</th>
+            <th data-k="due_date" class="mid">Hạn thu tiền</th>
+            <th data-k="note">Ghi chú</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------------- CÔNG NỢ -->
+    <section class="page" id="page-debt">
+      <div class="phead">
+        <div><h1>Công nợ</h1><p>Các công trình còn phải thu hiện có, phân theo tuổi nợ</p></div>
+      </div>
+      <div class="toolbar">
+        <label style="font-weight:600">🔍 Đối tác:</label>
+        <select id="debtPartner" style="width:auto;min-width:220px" onchange="renderDebt()"></select>
+        <div class="grow"></div>
+        <button class="btn primary" onclick="debtSelectAll()">☑ Chọn tất cả</button>
+        <button class="btn success" onclick="debtMarkPaid()">✔ Đã thanh toán hết</button>
+        <button class="btn" onclick="exportSheet('debt')">⬇ Xuất Excel</button>
+      </div>
+      <div class="cards" id="agingCards"></div>
+      <div class="tablewrap">
+        <table id="tblDebt">
+          <thead><tr><th class="stt">#</th><th data-k="name">Công trình</th>
+            <th data-k="partner" class="mid">Đối tác</th>
+            <th data-k="due_date" class="mid">Hạn thu tiền</th>
+            <th data-k="late" class="num">Số ngày quá hạn</th>
+            <th data-k="remain" class="num">Còn phải thu</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="hint">Bấm để chọn, giữ Ctrl bấm thêm để chọn nhiều dòng. Bấm đúp để mở công trình.</p>
+    </section>
+
+    <!-- ------------------------------------------------------- THIẾT LẬP -->
+    <section class="page" id="page-settings">
+      <div class="phead"><div><h1 id="stTitle">Thiết lập</h1><p id="stSub">Tài khoản, cảnh báo, sao lưu và dữ liệu</p></div></div>
+
+      <div class="chartrow">
+        <div class="panel">
+          <h3>Tài khoản</h3>
+          <div class="owner-only">
+            <label class="fld"><span>Tên hiển thị</span><input type="text" id="st_name"></label>
+            <label class="fld"><span>Chức danh</span><input type="text" id="st_role"></label>
+            <label class="fld"><span>Tên đăng nhập</span><input type="text" id="st_user"></label>
+            <button class="btn primary" onclick="saveAccount()">Lưu thông tin</button>
+          </div>
+          <p class="hint not-owner-only" id="st_me" style="margin-top:0"></p>
+          <div class="sect">
+            <h4>Đổi mật khẩu</h4>
+            <label class="fld"><span>Mật khẩu hiện tại</span><input type="password" id="st_p0"></label>
+            <div class="grid2">
+              <label class="fld"><span>Mật khẩu mới</span><input type="password" id="st_p1"></label>
+              <label class="fld"><span>Nhập lại mật khẩu mới</span><input type="password" id="st_p2"></label>
+            </div>
+            <button class="btn" onclick="savePassword()">Đổi mật khẩu</button>
+          </div>
+
+          <div class="sect admin-only">
+            <h4>Tài khoản nhân viên</h4>
+            <p class="hint" style="margin-top:0">Mật khẩu để trống = trùng tên đăng nhập. Nút <b>Sao chép</b> tạo sẵn tin nhắn gửi Zalo. Nhân viên chỉ thấy trang Công việc và Tính diện tích:
+              nhập diện tích, tình trạng, ghi chú, đề xuất phát sinh. Không thấy đơn giá, thành tiền, công nợ.</p>
+            <div class="tablewrap" style="box-shadow:none;max-height:260px;margin:8px 0">
+              <table id="tblUsers">
+                <thead><tr><th>Tên đăng nhập</th><th>Họ tên</th><th class="mid">Quyền</th>
+                  <th class="mid">Trạng thái</th><th class="mid">Gửi cho nhân viên</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn primary" onclick="userDlg(null)">+ Thêm tài khoản</button>
+              <button class="btn" onclick="editUser()">Sửa</button>
+              <button class="btn danger" onclick="delUser()">Xóa</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel admin-only">
+          <h3>Thư mục Google Drive</h3>
+          <p class="hint" style="margin-top:0">Thư mục gốc chứa các thư mục loại việc
+            (<b>1. THIẾT KẾ</b>, <b>2. THẨM TRA</b>…), bên trong là thư mục từng công trình,
+            đặt tên dạng <b>01. Nhà anh A (Tên đối tác)</b>.</p>
+          <label class="fld"><span>Link hoặc ID thư mục gốc</span>
+            <input type="text" id="st_drive" placeholder="https://drive.google.com/drive/folders/…"></label>
+          <p class="hint" id="st_driveName" style="margin-top:-6px"></p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+            <button class="btn primary" onclick="saveDriveRoot()">Lưu &amp; đồng bộ</button>
+            <button class="btn" onclick="syncDrive()">⟳ Đồng bộ ngay</button>
+            <button class="btn" onclick="toggleAutoSync()" id="st_autosync">Bật tự đồng bộ 15 phút</button>
+          </div>
+          <p class="hint" id="st_lastSync"></p>
+
+          <h3 style="margin-top:22px">Tùy chọn</h3>
+          <label class="fld"><span>Số ngày cảnh báo trước hạn thu tiền</span>
+            <input type="number" id="st_warn" min="0" max="365"></label>
+          <label class="fld"><span>Hạn thu tiền mặc định khi thêm công trình (ngày)</span>
+            <input type="number" id="st_due" min="0" max="365"></label>
+          <label class="fld"><span>Tên viết tắt đơn vị (hiện trên file Excel xuất ra)</span>
+            <input type="text" id="st_org"></label>
+          <button class="btn primary" onclick="saveOptions()">Lưu tùy chọn</button>
+
+          <div class="sect">
+            <h4>Sao lưu &amp; dữ liệu</h4>
+            <p class="hint" style="margin-top:0">Bản sao lưu là bản chép của bảng tính dữ liệu,
+              cất trong thư mục <b>Quan_ly_cong_trinh_Backups</b> trên Google Drive, giữ 12 bản mới nhất.</p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+              <button class="btn primary" onclick="doBackup()">⬆ Sao lưu ngay</button>
+              <button class="btn" onclick="toggleDailyBackup()" id="st_daily">Bật sao lưu hằng ngày</button>
+              <a class="btn" id="st_dataLink" target="_blank" rel="noopener">Mở bảng tính dữ liệu</a>
+            </div>
+          </div>
+
+          <div class="sect">
+            <h4>Nạp dữ liệu từ bản desktop</h4>
+            <p class="hint" style="margin-top:0">Chạy <b>export_for_appsscript.py</b> ở máy để lấy file
+              <b>congtrinh_export.json</b>, rồi chọn file đó tại đây.</p>
+            <input type="file" id="st_file" accept=".json" style="margin:8px 0">
+            <label style="display:flex;gap:7px;align-items:center;font-size:13px;margin:6px 0 10px">
+              <input type="checkbox" id="st_replace" checked style="width:auto">
+              Xóa sạch dữ liệu hiện có rồi nạp mới (bỏ chọn = nối thêm)</label>
+            <button class="btn danger" onclick="doImport()">Nạp dữ liệu</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ============================================================ HỘP THOẠI -->
+<!-- Hai lớp riêng biệt: lớp 2 dùng cho hộp thoại mở từ trong hộp thoại (tạm ứng,
+     bảng tầng) — nhờ vậy form công trình ở lớp 1 vẫn còn nguyên nội dung đang gõ. -->
+<div class="mask" id="mask"><div class="dlg" id="dlg">
+  <h2 id="dlgTitle"></h2>
+  <div class="body" id="dlgBody"></div>
+  <div class="foot" id="dlgFoot"></div>
+</div></div>
+<div class="mask lv2" id="mask2"><div class="dlg" id="dlg2">
+  <h2 id="dlg2Title"></h2>
+  <div class="body" id="dlg2Body"></div>
+  <div class="foot" id="dlg2Foot"></div>
+</div></div>
+
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,244 @@
+/* Quản lý công trình — giao diện */
+/* ============================================================ NỀN TẢNG */
+:root{
+  --bg:#F4F6FA; --panel:#FFFFFF; --ink:#1B2430; --muted:#6B7A8D; --line:#E1E7EF;
+  --blue:#0878E8; --blue-dark:#0A5FBA; --green:#159957; --red:#D64545; --amber:#C9930B;
+  --row-bad:#FDECEC; --row-warn:#FFF6E3;
+  --side:#132A45; --side-ink:#C8D6E6; --side-active:#0878E8;
+  --radius:10px; --shadow:0 1px 3px rgba(16,32,52,.08), 0 6px 18px rgba(16,32,52,.06);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font:14px/1.45 "Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--blue)}
+
+/* ============================================================ KHUNG APP */
+#app{display:none; height:100vh; overflow:hidden}
+#app.ready{display:flex}
+
+#sidebar{
+  width:216px; flex:0 0 216px; background:var(--side); color:var(--side-ink);
+  display:flex; flex-direction:column; padding:14px 10px; gap:4px;
+}
+.brand{display:flex; align-items:center; gap:10px; padding:8px 10px 16px}
+.brand .logo{
+  width:38px;height:38px;border-radius:9px;background:var(--blue);color:#fff;
+  display:grid;place-items:center;font-weight:700;font-size:15px;flex:0 0 38px;
+}
+.brand b{color:#fff;font-size:15px;display:block;line-height:1.2}
+.brand span{font-size:11px;opacity:.7}
+.navbtn{
+  display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+  background:none;border:0;color:var(--side-ink);padding:10px 12px;border-radius:8px;
+  cursor:pointer;font-size:14px;
+}
+.navbtn:hover{background:rgba(255,255,255,.08);color:#fff}
+.navbtn.active{background:var(--side-active);color:#fff;font-weight:600}
+.navbtn .ic{width:18px;text-align:center;font-size:15px}
+.sidefoot{margin-top:auto;padding:12px 10px 4px;border-top:1px solid rgba(255,255,255,.1)}
+.sidefoot .who{color:#fff;font-weight:600;font-size:13px}
+.sidefoot .role{font-size:11px;opacity:.7}
+
+#main{flex:1;overflow-y:auto;overflow-x:hidden;padding:22px 26px 40px}
+.page{display:none}
+.page.on{display:block}
+.phead{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+.phead h1{margin:0;font-size:22px;letter-spacing:-.2px}
+.phead p{margin:3px 0 0;color:var(--muted);font-size:13px}
+.phead .grow{flex:1}
+
+/* ============================================================ THÀNH PHẦN */
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:16px}
+.panel > h3{margin:0 0 12px;font-size:14px;color:var(--muted);font-weight:600;
+  text-transform:uppercase;letter-spacing:.4px}
+
+.btn{
+  border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 14px;
+  cursor:pointer;font-weight:600;font-size:13px;white-space:nowrap;transition:.12s;
+}
+.btn:hover{background:#F2F6FC;border-color:#C6D4E4}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.primary:hover{background:var(--blue-dark);border-color:var(--blue-dark)}
+.btn.success{background:var(--green);border-color:var(--green);color:#fff}
+.btn.success:hover{filter:brightness(.93)}
+.btn.danger{background:var(--red);border-color:var(--red);color:#fff}
+.btn.danger:hover{filter:brightness(.93)}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--muted);padding:6px 8px}
+.btn.ghost:hover{background:#EEF3F9;color:var(--ink)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.sm{padding:5px 10px;font-size:12px}
+
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.toolbar .grow{flex:1;min-width:120px}
+
+input[type=text],input[type=number],input[type=date],input[type=password],select,textarea{
+  width:100%;padding:8px 11px;border:1px solid var(--line);border-radius:8px;background:#fff;
+  outline:none;transition:.12s;
+}
+input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(8,120,232,.12)}
+input[readonly]{background:#F6F8FB;color:var(--muted)}
+textarea{resize:vertical;min-height:64px}
+label.fld{display:block;margin-bottom:10px}
+label.fld > span{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;font-weight:600}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 14px}
+
+/* ============================================================ THẺ SỐ LIỆU */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--blue);
+  border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow)}
+.card .t{font-size:12px;color:var(--muted);font-weight:600}
+.card .v{font-size:21px;font-weight:700;margin-top:5px;letter-spacing:-.4px}
+.card .s{font-size:11px;color:var(--muted);margin-top:2px}
+.card.green{border-left-color:var(--green)} .card.green .v{color:var(--green)}
+.card.red{border-left-color:var(--red)} .card.red .v{color:var(--red)}
+.card.blue .v{color:var(--blue)}
+
+/* ============================================================ BẢNG */
+.tablewrap{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);overflow:auto;max-height:calc(100vh - 260px)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{
+  position:sticky;top:0;z-index:2;background:#F7F9FC;text-align:left;padding:10px 12px;
+  border-bottom:2px solid var(--line);font-size:12px;color:var(--muted);font-weight:700;
+  white-space:nowrap;cursor:pointer;user-select:none;
+}
+thead th:hover{background:#EDF2F9;color:var(--ink)}
+thead th.sorted::after{content:' ▲';font-size:9px;color:var(--blue)}
+thead th.sorted.desc::after{content:' ▼'}
+tbody td{padding:9px 12px;border-bottom:1px solid #EEF2F7;vertical-align:middle}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:#F5F9FF}
+tbody tr.sel{background:#DCEBFF !important;box-shadow:inset 3px 0 0 var(--blue)}
+tbody tr.bad{background:var(--row-bad)}
+tbody tr.warn{background:var(--row-warn)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+td.mid,th.mid{text-align:center;white-space:nowrap}
+td.stt{text-align:center;color:var(--muted);width:44px}
+.empty{padding:34px;text-align:center;color:var(--muted)}
+.chip{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700}
+.chip.red{background:#FDE2E2;color:#B02A2A}
+.chip.amber{background:#FFF0CC;color:#8A6400}
+.chip.green{background:#DEF5E8;color:#0E6D3F}
+
+/* ============================================================ BIỂU ĐỒ */
+.chartrow{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.legend{list-style:none;margin:0;padding:0;max-height:210px;overflow:auto;flex:1;min-width:0}
+.legend li{display:flex;align-items:flex-start;gap:8px;padding:5px 4px;border-radius:6px;font-size:13px}
+.legend li.click{cursor:pointer}
+.legend li.click:hover{background:#F0F5FC}
+.legend .dot{width:9px;height:9px;border-radius:50%;flex:0 0 9px;margin-top:5px}
+.legend .nm{flex:1;min-width:0;word-break:break-word}
+.legend .sub{color:var(--muted);font-size:11px}
+.donutbox{display:flex;gap:14px;align-items:center}
+.alerts{list-style:none;margin:0;padding:0;max-height:190px;overflow:auto}
+.alerts li{padding:7px 10px;border-radius:7px;margin-bottom:5px;font-size:13px;cursor:pointer}
+.alerts li.lv2{background:var(--row-bad);border-left:3px solid var(--red)}
+.alerts li.lv1{background:var(--row-warn);border-left:3px solid var(--amber)}
+.alerts li:hover{filter:brightness(.97)}
+
+/* ============================================================ HỘP THOẠI */
+.mask{position:fixed;inset:0;background:rgba(15,26,42,.5);display:none;z-index:60;
+  align-items:flex-start;justify-content:center;padding:28px 14px;overflow:auto}
+.mask.on{display:flex}
+.mask.lv2{z-index:70;background:rgba(15,26,42,.35)}
+.dlg{background:#fff;border-radius:12px;width:100%;max-width:560px;box-shadow:0 24px 60px rgba(0,0,0,.3);
+  animation:pop .14s ease-out}
+.dlg.wide{max-width:840px}
+@keyframes pop{from{transform:translateY(-8px);opacity:0}to{transform:none;opacity:1}}
+.dlg h2{margin:0;padding:16px 20px;font-size:16px;border-bottom:1px solid var(--line)}
+.dlg .body{padding:18px 20px;max-height:calc(100vh - 190px);overflow:auto}
+.dlg .foot{padding:13px 20px;border-top:1px solid var(--line);display:flex;gap:8px;
+  justify-content:flex-end;flex-wrap:wrap;background:#FAFBFD;border-radius:0 0 12px 12px}
+.dlg .foot .grow{flex:1}
+.sect{border:1px solid var(--line);border-radius:9px;padding:13px;margin-top:14px}
+.sect > h4{margin:0 0 10px;font-size:12px;text-transform:uppercase;color:var(--muted);letter-spacing:.4px}
+.sumline{display:flex;flex-wrap:wrap;gap:8px 22px;padding:10px 12px;background:#F5F9FF;
+  border-radius:8px;margin-top:10px;font-size:13px}
+.sumline b{font-variant-numeric:tabular-nums}
+
+/* ============================================================ ĐĂNG NHẬP */
+#login{position:fixed;inset:0;background:linear-gradient(140deg,#132A45,#0878E8);
+  display:none;align-items:center;justify-content:center;z-index:80;padding:20px}
+#login.on{display:flex}
+#login .box{background:#fff;border-radius:14px;padding:30px 28px;width:100%;max-width:370px;
+  box-shadow:0 24px 60px rgba(0,0,0,.35);text-align:center}
+#login .logo{width:56px;height:56px;border-radius:14px;background:var(--blue);color:#fff;
+  display:grid;place-items:center;font-size:22px;font-weight:700;margin:0 auto 12px}
+#login h2{margin:0 0 4px;font-size:19px}
+#login p{margin:0 0 20px;color:var(--muted);font-size:13px}
+#login .err{color:var(--red);font-size:12.5px;min-height:18px;margin:6px 0 2px}
+#login .btn{width:100%;padding:11px}
+#login label.fld{text-align:left}
+
+/* ============================================================ KHÁC */
+#splash{position:fixed;inset:0;display:grid;place-items:center;background:var(--bg);z-index:90}
+#splash.off{display:none}
+.spin{width:34px;height:34px;border:3px solid #D6E2F2;border-top-color:var(--blue);
+  border-radius:50%;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(70px);
+  background:#1B2430;color:#fff;padding:11px 18px;border-radius:9px;font-size:13.5px;
+  z-index:100;opacity:0;transition:.22s;max-width:88vw;text-align:center;box-shadow:var(--shadow)}
+#toast.on{opacity:1;transform:translateX(-50%)}
+#toast.err{background:var(--red)}
+#toast.ok{background:var(--green)}
+#busy{position:fixed;top:0;left:0;height:3px;width:0;background:var(--blue);z-index:110;
+  transition:width .3s}
+#busy.on{width:82%}
+.hint{font-size:12px;color:var(--muted);margin-top:6px}
+.hidden{display:none !important}
+
+/* ============================================================ PHÂN QUYỀN (bản 2.1) */
+body.role-staff .admin-only{display:none !important}
+body.not-owner .owner-only{display:none !important}
+body:not(.not-owner) .not-owner-only{display:none !important}
+.navbadge{margin-left:auto;background:var(--red);color:#fff;border-radius:999px;font-size:10px;
+  font-weight:700;padding:1px 7px;line-height:16px}
+.navbadge:empty{display:none}
+tbody tr.grp{cursor:default;background:#EEF4FC !important}
+tbody tr.grp td{font-weight:700;color:#1F4E8C;font-size:12px;text-transform:uppercase;
+  letter-spacing:.3px;padding-top:9px;padding-bottom:9px}
+tbody tr.gone td{color:#9AA7B6}
+.chip.gray{background:#EDF1F6;color:#5C6B7D}
+.chip.blue{background:#DCEBFF;color:#1554A6}
+.ar-item{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px dashed var(--line)}
+.ar-item:last-child{border-bottom:0}
+.ar-item .tx{flex:1;min-width:0}
+.ar-item .tx small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+.ar-item .amt{font-weight:700;white-space:nowrap}
+.arform{display:grid;grid-template-columns:1fr 150px auto;gap:8px;align-items:end;margin-top:10px}
+.arform .fld{margin:0}
+@media (max-width:720px){
+  .arform{grid-template-columns:1fr}
+  .navbadge{margin-left:4px}
+}
+
+/* ============================================================ ĐIỆN THOẠI */
+@media (max-width:900px){
+  .chartrow{grid-template-columns:1fr}
+  .grid3{grid-template-columns:1fr 1fr}
+}
+@media (max-width:720px){
+  #app.ready{flex-direction:column}
+  #sidebar{width:100%;flex:0 0 auto;flex-direction:row;overflow-x:auto;padding:8px;gap:6px;
+    align-items:center}
+  .brand{padding:0 8px 0 4px;flex:0 0 auto}
+  .brand .txt{display:none}
+  .navbtn{width:auto;flex:0 0 auto;padding:8px 12px;font-size:13px}
+  .navbtn .lb{display:none}
+  .navbtn .ic{font-size:17px}
+  .sidefoot{display:none}
+  #main{padding:16px 13px 40px}
+  .grid2,.grid3{grid-template-columns:1fr}
+  .tablewrap{max-height:none}
+  .donutbox{flex-direction:column;align-items:stretch}
+  .dlg .body{max-height:none}
+}
