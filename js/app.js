@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.15-24';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.15-25';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -2353,8 +2353,10 @@ function renderRenameBox(){
   if (!el) return;
   var n = pendingRenames().length;
   el.innerHTML = n ? 'Đang chờ đổi tên: <b>' + n + '</b> thư mục' : 'Không có thư mục nào chờ đổi tên.';
-  document.getElementById('st_lastRename').textContent = (DB.settings || {}).last_rename
-    ? 'Lần đổi gần nhất: ' + DB.settings.last_rename : '';
+  var st = DB.settings || {};
+  document.getElementById('st_lastRename').innerHTML = (st.last_rename ? 'Lần đổi gần nhất: ' + esc(st.last_rename) : '')
+    + (st.last_rename_err ? '<span class="renameerr">' + esc(st.last_rename_err).replace(/
+/g, '<br>') + '</span>' : '');
 }
 function renameNow(){
   var n = pendingRenames().length;
@@ -2362,7 +2364,8 @@ function renameNow(){
   if (!confirm('Đổi tên ' + n + ' thư mục ngay bây giờ?\nNếu nhân viên đang mở file trong thư mục thì nên đợi 23h.')) return;
   call('apiRenameFoldersNow', []).then(function(r){
     return reloadAll().then(function(){
-      toast('Đã đổi tên ' + r.renamed + ' thư mục' + (r.failed ? ', lỗi ' + r.failed : '') + '.', r.failed ? 'err' : 'ok');
+      toast('Đã đổi tên ' + r.renamed + ' thư mục' + (r.failed ? ', lỗi ' + r.failed + ' — xem chi tiết ở khung đổi tên.' : '.'),
+            r.failed ? 'err' : 'ok');
     });
   }).catch(fail);
 }

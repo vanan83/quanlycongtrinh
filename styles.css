@@ -639,3 +639,4 @@ tfoot td + td{border-left:1px solid #E1E8F1}
 /* Khung "đổi tên thư mục lúc 23h" ở Thiết lập */
 .renamebox{margin:12px 0 4px;padding:12px 14px;border-radius:10px;background:#F3F0FF;border:1px solid #DCD2FB}
 .renamebox > b{color:#4B2BA8;font-size:13.5px}
+.renameerr{display:block;margin-top:6px;padding:7px 10px;border-radius:8px;background:#FDECEE;color:#A92530;font-size:12px;line-height:1.5;word-break:break-word}
