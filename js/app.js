@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.15-29';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.15-30';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -1685,7 +1685,9 @@ function workDlg(id){
       return { name: f.name, length: num(f.length), width: num(f.width), area: num(f.area) };
     }),
     advances: [],
+    reports: isThamTra(p) ? reportsOf(p.id).map(function(r){ return { number: r.number, report_date: r.report_date }; }) : null,
   };
+  if (PD.reports && !PD.reports.length) PD.reports.push({ number: '', report_date: '' });
   var info = [p.category ? catLabel(p.category) : '', partnerName(p.partner_id) || (p.partner_hint ? p.partner_hint + '?' : '')]
     .filter(String).map(esc).join(' · ');
   var buttons = [{ label: 'Hủy', act: closeDlg }];
@@ -1718,6 +1720,8 @@ function workDlg(id){
       + '<label class="fld" style="margin:4px 0 0"><span>Ghi chú</span>'
       + '<textarea id="wk_note" placeholder="VD: Cải tạo (tính 40% diện tích), nâng thêm 2 tầng…">'
       + esc(p.note) + '</textarea></label></div>'
+      + (PD.reports ? '<div class="sect rp-sect"><h4>Số báo cáo thẩm tra</h4><div id="rp_box"></div>'
+          + '<button class="btn sm primary" style="margin-top:10px" onclick="rpAdd()" id="rp_addBtn"></button></div>' : '')
       + '<div class="sect"><h4>Phát sinh</h4><div id="ar_box"></div>'
       + '<button class="btn sm primary" style="margin-top:10px" onclick="arisingDlg(PD.id)">± Thêm phát sinh</button>'
       + '<p class="hint">' + (isAdmin() ? 'Quản lý thêm phát sinh thì được duyệt luôn, tự cộng vào công nợ.'
@@ -1725,8 +1729,39 @@ function workDlg(id){
     buttons: buttons,
   });
   renderArBox();
+  renderRpBox();
   pjRecalc();
   setTimeout(function(){ var el = document.getElementById('pj_area'); el.focus(); el.select(); }, 60);
+}
+
+/* ---------- Số báo cáo thẩm tra (lần 1, lần 2…) */
+function isThamTra(p){ return /th[aẩ]m tra/i.test(catName(p.category || '') + ' ' + (p.category || '')); }
+function reportsOf(pid){
+  return (DB.reports || []).filter(function(r){ return String(r.project_id) === String(pid); })
+    .sort(function(a, b){ return num(a.ord) - num(b.ord); });
+}
+function renderRpBox(){
+  var box = document.getElementById('rp_box');
+  if (!box || !PD || !PD.reports) return;
+  box.innerHTML = '<div class="rp-head"><span>Lần</span><span>Số báo cáo</span><span>Ngày báo cáo</span><span></span></div>'
+    + PD.reports.map(function(r, i){
+      return '<div class="rp-row"><div class="rp-no">Lần ' + (i + 1) + '</div>'
+        + '<input type="text" placeholder="VD: 442026(A)/BCTT-SBFC" value="' + esc(r.number) + '" oninput="PD.reports[' + i + '].number=this.value">'
+        + '<input type="date" value="' + esc(r.report_date || '') + '" oninput="PD.reports[' + i + '].report_date=this.value">'
+        + '<button type="button" class="btn ghost sm" style="color:#D64545" title="Xóa lần ' + (i + 1) + '" onclick="rpDel(' + i + ')">✕</button></div>';
+    }).join('');
+  document.getElementById('rp_addBtn').textContent = '+ Thêm lần ' + (PD.reports.length + 1);
+}
+function rpAdd(){
+  PD.reports.push({ number: '', report_date: TODAY });
+  renderRpBox();
+  var ins = document.querySelectorAll('#rp_box .rp-row input[type=text]');
+  if (ins.length) ins[ins.length - 1].focus();
+}
+function rpDel(i){
+  PD.reports.splice(i, 1);
+  if (!PD.reports.length) PD.reports.push({ number: '', report_date: '' });
+  renderRpBox();
 }
 
 /** Danh sách đối tác xếp theo tên (tiếng Việt) cho ô chọn. */
@@ -1841,6 +1876,7 @@ function wkSave(){
     note: document.getElementById('wk_note').value,
     floors: PD.floors,
   };
+  if (PD.reports) rec.reports = PD.reports;
   call('apiSaveWork', [rec]).then(function(){
     closeDlg();
     return reloadAll();

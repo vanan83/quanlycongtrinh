@@ -690,3 +690,15 @@ tfoot td + td{border-left:1px solid #E1E8F1}
 input.manual{background:#F3EEFF !important;border-color:#B9A2F2 !important;color:#5B2FC9;font-weight:700}
 .rate-manual{color:#6D3FE0;font-weight:700}
 td.rate-manual{background:#F6F2FF}
+
+/* Số báo cáo thẩm tra */
+.rp-head,.rp-row{display:grid;grid-template-columns:64px minmax(0,1.6fr) minmax(0,1fr) 36px;gap:8px;align-items:center}
+.rp-head{font-size:11.5px;font-weight:700;color:#5A6B85;text-transform:uppercase;letter-spacing:.3px;padding:0 0 6px}
+.rp-row{padding:6px 0;border-top:1px dashed #DCE5F0}
+.rp-row input{margin:0}
+.rp-no{font-weight:800;color:#0F4A8A;background:#E3EDFA;border-radius:7px;text-align:center;padding:7px 0;font-size:12.5px}
+@media (max-width:600px){
+  .rp-head{display:none}
+  .rp-row{grid-template-columns:56px minmax(0,1fr) 32px}
+  .rp-row input[type=date]{grid-column:2}
+}
