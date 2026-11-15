@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.15-30';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.15-31';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -2209,7 +2209,9 @@ function renderPayroll(){
       + (c.xfer ? moneyPlain(c.xfer) : '') + '" onchange="prSaveXfer(' + r.uid + ', this)"'
       + ' onkeydown="if(event.key===\'Enter\')this.blur()"></td>'
       + '<td class="num">' + prBackCell(c) + '</td>'
-      + '<td class="mid">' + (d.locked ? '' : '<button class="btn sm" onclick="salaryDlg(' + r.uid + ')">Mức lương</button>') + '</td></tr>';
+      + '<td class="mid" style="white-space:nowrap">'
+      + '<button class="btn sm cpy" onclick="prCopyMsg(' + r.uid + ')" title="Sao chép tin nhắn gửi nhân viên">📋 Copy</button> '
+      + (d.locked ? '' : '<button class="btn sm" onclick="salaryDlg(' + r.uid + ')">Mức lương</button>') + '</td></tr>';
   }).join('') : '<tr><td colspan="13" class="empty">Chưa có tài khoản nhân viên. Tạo ở Thiết lập › Tài khoản nhân viên.</td></tr>';
   document.querySelector('#tblPayroll tfoot').innerHTML = d.rows.length
     ? '<tr><td></td><td><b>TỔNG CỘNG</b></td><td class="num">' + moneyPlain(T.base) + '</td><td class="num">' + T.otn + '</td><td></td>'
@@ -2281,6 +2283,25 @@ function prLock(){
       call('apiPayrollLock', [PR.month, lock]).then(function(){ closeDlg(); return loadPayroll(); })
         .then(function(){ toast(lock ? 'Đã chốt lương ' + monthLabel(PR.month) + '.' : 'Đã mở chốt.', 'ok'); }).catch(fail);
     }, lock ? 'primary' : 'danger');
+}
+
+/**
+ * Tin nhắn gửi nhân viên:
+ *   Đã chuyển: 23.426.390 đ / Lương tháng 11: 11.700.000 đ / Làm tròn: 11.700.000 đ
+ * Làm tròn = (đã chuyển − lương tháng) làm tròn XUỐNG đến trăm nghìn (11.726.390 -> 11.700.000).
+ */
+function prCopyMsg(uid){
+  var r = PR.data.rows.filter(function(x){ return String(x.uid) === String(uid); })[0];
+  if (!r) return;
+  var c = prRow(r);
+  if (!c.xfer) return toast('Nhập "Tiền chuyển" cho ' + r.name + ' trước.', 'err');
+  var back = c.xfer - c.total;
+  var round = (back < 0 ? -1 : 1) * Math.floor(Math.abs(back) / 100000) * 100000;
+  var NL = String.fromCharCode(10);
+  var text = 'Đã chuyển: ' + money(c.xfer) + NL
+    + 'Lương tháng ' + Number(PR.month.slice(5)) + ': ' + money(c.total) + NL
+    + 'Làm tròn: ' + (round < 0 ? '−' : '') + money(Math.abs(round));
+  copyText(text, 'Đã sao chép tin nhắn cho ' + r.name + ' — dán vào Zalo bằng Ctrl+V.');
 }
 
 /** Chép bảng lương dạng cột (tab) để dán thẳng vào Excel / Google Sheets. */

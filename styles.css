@@ -702,3 +702,6 @@ td.rate-manual{background:#F6F2FF}
   .rp-row{grid-template-columns:56px minmax(0,1fr) 32px}
   .rp-row input[type=date]{grid-column:2}
 }
+
+.btn.sm.cpy{background:#ECFDF3;border-color:#A7E3C3;color:#0F7A47}
+.btn.sm.cpy:hover{background:#12925A;border-color:#12925A;color:#fff}
