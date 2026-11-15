@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.15-43';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.15-44';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -1456,20 +1456,25 @@ function debtMarkPaid(){
 
 /** Tình trạng trống (công trình cũ, chưa đồng bộ lại) coi như "Mới nhận". */
 var DEFAULT_STATUS = 'Mới nhận';
-function statusOf(s){ return String(s || '').trim() || DEFAULT_STATUS; }
+/** "Đã gửi bản vẽ" coi như "Hoàn thành" (bỏ mục này khỏi danh sách). */
+function statusOf(s){
+  s = String(s || '').trim();
+  if (/^đ[ãa] g[ửu]i b[ảa]n v[ẽe]$/i.test(s)) return 'Hoàn thành';
+  return s || DEFAULT_STATUS;
+}
 function statusChip(s){
   s = statusOf(s);
   var cls = /ho[àa]n th[àa]nh|^ok$/i.test(s) ? 'green' : /^m[ớo]i nh[ậa]n$/i.test(s) ? 'new' : 'blue';
   return '<span class="chip ' + cls + '">' + esc(s) + '</span>';
 }
-var STATUS_LIST = ['Mới nhận', 'Đang làm', 'Chờ thông tin', 'Đã gửi bản vẽ', 'Đang chỉnh sửa', 'Hoàn thành'];
+var STATUS_LIST = ['Mới nhận', 'Đang làm', 'Chờ thông tin', 'Đang chỉnh sửa', 'Hoàn thành'];
 
 /**
  * Ô Tình trạng (datalist): trình duyệt chỉ gợi ý các mục khớp chữ đang có trong ô, nên ô đang ghi
  * "Mới nhận" thì bấm mũi tên chỉ thấy "Mới nhận". Khi bấm vào ô: tạm để trống (chữ cũ hiện mờ) để
  * thấy đủ danh sách; rời ô mà không chọn / gõ gì thì trả lại chữ cũ.
  */
-var STATUS_EVT = ' onfocus="stFocus(this)" onblur="stBlur(this)"';
+var STATUS_EVT = ' autocomplete="off" onfocus="stFocus(this)" onblur="stBlur(this)"';
 function stFocus(el){
   if (!el.value) return;
   el.dataset.old = el.value;
@@ -1486,7 +1491,8 @@ function statusDatalist(){
   STATUS_LIST.forEach(function(s){ seen[s] = 1; });
   var extra = [];
   DB.projects.forEach(function(p){
-    if (p.status && !seen[p.status]){ seen[p.status] = 1; extra.push(p.status); }
+    var st = p.status ? statusOf(p.status) : '';
+    if (st && !seen[st]){ seen[st] = 1; extra.push(st); }
   });
   return '<datalist id="wk_statusList">' + STATUS_LIST.concat(extra).map(function(s){
     return '<option value="' + esc(s) + '">';
