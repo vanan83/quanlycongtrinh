@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.15-42';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.15-43';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -1682,6 +1682,7 @@ function renderWork(){
     if (!partnerPass(r, pf)) return false;
     if (flt === 'notdone' && isDoneStatus(r.status)) return false;   // còn đang làm / mới nhận…
     if (flt === 'noarea' && num(r.area) > 0) return false;
+    if (flt === 'donenoarea' && !doneNoArea(r)) return false;
     if (flt === 'pending' && !r._pending) return false;
     if (flt === 'nopartner' && r.partner_id) return false;
     if (flt === 'missing' && r.folder_state !== 'missing') return false;
@@ -1690,6 +1691,16 @@ function renderWork(){
       return String(v || '').toLowerCase().indexOf(kw) >= 0;
     });
   });
+
+  // Cảnh báo: công trình đã xong mà chưa có diện tích (tính theo loại việc đang xem, không theo ô lọc)
+  var miss = workRows().filter(function(r){
+    return doneNoArea(r) && (all || (r.category || WK_NONE) === WK_CAT) && r.folder_state !== 'missing';
+  });
+  var wb = document.getElementById('wkWarn');
+  wb.classList.toggle('hidden', !miss.length);
+  wb.innerHTML = miss.length ? '⚠️ <b>' + miss.length + ' công trình đã xong nhưng chưa nhập diện tích</b> — '
+    + miss.slice(0, 4).map(function(r){ return esc(r.name); }).join(', ') + (miss.length > 4 ? '…' : '')
+    + ' <span class="warnbar-act">' + (flt === 'donenoarea' ? 'Đang lọc ✓' : 'Bấm để lọc ›') + '</span>' : '';
 
   var counts = {};
   rows.forEach(function(r){ var k = r.category || ''; counts[k] = (counts[k] || 0) + 1; });
@@ -1718,7 +1729,8 @@ function renderWork(){
       + '<td class="mid">' + partner + '</td>'
       + '<td class="mid">' + recvCell(r) + '</td>'
       + '<td class="num">' + (num(r.area) ? '<b>' + dienTichVn(r.area) + '</b>'
-                                          : '<span class="chip amber">chưa nhập</span>') + '</td>'
+                                          : (doneNoArea(r) ? '<span class="chip red" title="Công trình đã xong — nhập diện tích để tính tiền">⚠️ Xong · chưa nhập</span>'
+                                                           : '<span class="chip amber">chưa nhập</span>')) + '</td>'
       + '<td class="mid">' + st + '</td>'
       + '<td class="mid">' + (ps || '—') + '</td>'
       + '<td class="mid" style="font-size:12px">' + esc(r.updated_by || '')
@@ -1743,6 +1755,14 @@ function daysSince(iso){
   return Math.round((b - a) / 86400000);
 }
 /** Công trình đã xong / đã gửi bản vẽ thì không cần đếm ngày gấp nữa. */
+/** Đã xong (theo tình trạng) mà chưa có diện tích -> cần nhắc nhân viên nhập để tính tiền. */
+function doneNoArea(r){ return isDoneStatus(r.status) && !(num(r.area) > 0); }
+function wkShowDoneNoArea(){
+  var f = document.getElementById('wkFilter');
+  f.value = f.value === 'donenoarea' ? '' : 'donenoarea';
+  renderWork();
+}
+
 function isDoneStatus(st){ return /ho[àa]n th[àa]nh|đ[ãa] g[ửu]i|xong|^ok$/i.test(String(st || '')); }
 function recvCell(r){
   var d = daysSince(r.create_date);

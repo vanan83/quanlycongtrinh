@@ -146,6 +146,7 @@
           <option value="">Tất cả</option>
           <option value="notdone">Chưa xong</option>
           <option value="noarea">Chưa nhập diện tích</option>
+          <option value="donenoarea">Đã xong nhưng chưa có diện tích</option>
           <option value="pending">Có phát sinh chờ duyệt</option>
           <option value="nopartner" class="admin-only">Chưa gán đối tác</option>
           <option value="missing">Thư mục đã xóa</option>
@@ -154,6 +155,7 @@
         <button class="btn primary" onclick="editWork()">✎ Nhập diện tích / phát sinh</button>
       </div>
       <p class="hint" id="wkSync" style="margin:-4px 0 10px"></p>
+      <div class="warnbar hidden" id="wkWarn" onclick="wkShowDoneNoArea()"></div>
       <div class="tablewrap">
         <table id="tblWork">
           <thead><tr><th class="stt">STT</th><th>Công trình</th><th class="mid">Đối tác</th>

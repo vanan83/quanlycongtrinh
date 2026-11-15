@@ -745,3 +745,11 @@ details.hs-sect[open] > summary h4::after{content:' ▾'}
 /* Ô "Ghi nhớ đăng nhập" ở màn hình đăng nhập */
 .lg-remember{display:flex;align-items:center;gap:8px;margin:2px 0 6px;font-size:13.5px;color:#334A6B;cursor:pointer;user-select:none}
 .lg-remember input{width:17px;height:17px;margin:0;accent-color:var(--blue)}
+
+/* Thanh cảnh báo: công trình đã xong mà chưa nhập diện tích */
+.warnbar{margin:0 0 10px;padding:10px 14px;border-radius:10px;background:#FFF1F1;border:1px solid #F5C2C6;
+  border-left:4px solid #D64545;color:#9B1C26;font-size:13.5px;cursor:pointer;line-height:1.5}
+.warnbar:hover{background:#FFE7E8}
+.warnbar-act{float:right;font-weight:700;color:#C2303B;white-space:nowrap}
+.warnbar.hidden{display:none}
+@media (max-width:600px){ .warnbar-act{float:none;display:block} }
