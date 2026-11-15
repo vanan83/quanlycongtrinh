@@ -685,3 +685,8 @@ tfoot td + td{border-left:1px solid #E1E8F1}
 .xferin:focus{border-color:#E08A0C;box-shadow:0 0 0 3px rgba(245,165,36,.2)}
 .back-pos{color:#7042D8}
 .back-neg{color:#C2303B}
+
+/* Mức lương nhập tay (khác mức tự động theo lương cơ bản) */
+input.manual{background:#F3EEFF !important;border-color:#B9A2F2 !important;color:#5B2FC9;font-weight:700}
+.rate-manual{color:#6D3FE0;font-weight:700}
+td.rate-manual{background:#F6F2FF}

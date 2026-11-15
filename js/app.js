@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.15-27';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.15-28';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -40,9 +40,19 @@ function moneyPlain(v){ return Math.round(num(v)).toLocaleString('de-DE'); }
 function docSo(s){
   s = String(s === null || s === undefined ? '' : s).trim().replace(/\s/g,'');
   if (!s) return 0;
+  if ((s.match(/\./g) || []).length > 1 && s.indexOf(',') < 0) s = s.replace(/\./g,'');   // 10.000.000
   if (s.indexOf(',') >= 0 && s.indexOf('.') >= 0) s = s.replace(/\./g,'').replace(',','.');
   else s = s.replace(',','.');
   return num(s);
+}
+
+/** Đọc số tiền (đồng, số nguyên): chịu được '10.000.000', '10,000,000', '10 000 000 đ'. */
+function docTien(s){
+  s = String(s === null || s === undefined ? '' : s).trim();
+  if (typeof arguments[0] === 'number') return Math.round(arguments[0]);
+  var neg = /^[-−]/.test(s);
+  s = s.replace(/,\d{1,2}$/, '').replace(/[^\d]/g, '');
+  return s ? (neg ? -1 : 1) * Number(s) : 0;
 }
 
 /** Diện tích kiểu Việt Nam: 1.320,5 */
@@ -774,8 +784,8 @@ function partnerDlg(p){
             phone: document.getElementById('pt_phone').value,
             contact: document.getElementById('pt_contact').value,
             address: document.getElementById('pt_address').value,
-            unit_price: docSo(document.getElementById('pt_price').value),
-            permit_price: docSo(document.getElementById('pt_permit').value),
+            unit_price: docTien(document.getElementById('pt_price').value),
+            permit_price: docTien(document.getElementById('pt_permit').value),
             alias: document.getElementById('pt_alias').value,
             note: document.getElementById('pt_note').value,
           };
@@ -1034,10 +1044,10 @@ function pjRead(){
   return {
     id: PD.id,
     area: docSo(document.getElementById('pj_area').value),
-    unit_price: docSo(document.getElementById('pj_price').value),
+    unit_price: docTien(document.getElementById('pj_price').value),
     factor: docSo(document.getElementById('pj_factor').value) || 1,
-    permit_fee: docSo(document.getElementById('pj_permit').value),
-    arising_fee: docSo(document.getElementById('pj_arising').value),
+    permit_fee: docTien(document.getElementById('pj_permit').value),
+    arising_fee: docTien(document.getElementById('pj_arising').value),
   };
 }
 
@@ -1070,10 +1080,10 @@ function pjPartnerChanged(){
   pjFolderPreview();
   var sel = document.getElementById('pj_partner');
   var price = num(sel.options[sel.selectedIndex].dataset.price);
-  var cur = docSo(document.getElementById('pj_price').value);
+  var cur = docTien(document.getElementById('pj_price').value);
   if (price && !cur) document.getElementById('pj_price').value = moneyPlain(price);
   // Đang tích xin phép mà chưa có số tiền -> lấy phí xin phép của đối tác mới chọn
-  if (document.getElementById('pj_permit_on').checked && !docSo(document.getElementById('pj_permit').value)){
+  if (document.getElementById('pj_permit_on').checked && !docTien(document.getElementById('pj_permit').value)){
     var pp = num(sel.options[sel.selectedIndex].dataset.permit);
     if (pp) document.getElementById('pj_permit').value = moneyPlain(pp);
   }
@@ -1150,7 +1160,7 @@ function advDlg(i){
           var rec = {
             id: a.id || null,
             advance_date: document.getElementById('ad_date').value || TODAY,
-            amount: docSo(document.getElementById('ad_amount').value),
+            amount: docTien(document.getElementById('ad_amount').value),
             note: document.getElementById('ad_note').value,
           };
           if (rec.amount <= 0) return toast('Số tiền phải lớn hơn 0.', 'err');
@@ -1785,7 +1795,7 @@ function arisingDlg(projectId){
       { label: 'Hủy', act: closeDlg },
       { label: 'Lưu phát sinh', cls: 'primary', act: function(){
           var rec = { project_id: p.id, date: document.getElementById('ps_date').value || TODAY,
-                      amount: docSo(document.getElementById('ps_amt').value),
+                      amount: docTien(document.getElementById('ps_amt').value),
                       content: document.getElementById('ps_text').value.trim() };
           if (!rec.content) return toast('Hãy ghi nội dung phát sinh.', 'err');
           if (!(rec.amount > 0)) return toast('Hãy nhập số tiền phát sinh.', 'err');
@@ -1915,7 +1925,7 @@ function reviewDlg(aid, nested){
   setTimeout(function(){ var el = document.getElementById('rv_amt'); el.focus(); el.select(); }, 60);
 
   function go2(decision){
-    var amt = docSo(document.getElementById('rv_amt').value);
+    var amt = docTien(document.getElementById('rv_amt').value);
     var note = document.getElementById('rv_note').value;
     // Công trình đã thu đủ trước khi duyệt? -> báo rõ khoản này vào lại Công nợ
     var before = metricsMap()[String(a.project_id)];
@@ -2098,6 +2108,12 @@ function loadPayroll(){
   return call('apiPayroll', [PR.month]).then(function(d){ PR.data = d; renderPayroll(); }).catch(fail);
 }
 
+/** Mức tự động: 1 buổi OFF = lương cơ bản / 26 / 2; tăng ca = 1 buổi × 1,5 (giống autoRates_ ở máy chủ). */
+function autoRates(base){
+  var b = num(base) / 26 / 2;
+  return { off: Math.round(b), ot: Math.round(b * 1.5) };
+}
+
 function prRow(r){
   var ot = num(r.ot_count) * num(r.ot_rate), off = num(r.off_count) * num(r.off_rate);
   var total = Math.round(num(r.base_salary) + ot - off);
@@ -2117,7 +2133,7 @@ function prBackCell(c){
 function prSaveXfer(uid, el){
   var r = PR.data.rows.filter(function(x){ return String(x.uid) === String(uid); })[0];
   if (!r) return;
-  var v = docSo(el.value);
+  var v = docTien(el.value);
   if (num(v) === num(r.transfer)) { el.value = num(v) ? moneyPlain(v) : ''; return; }
   el.disabled = true;
   call('apiSavePayTransfer', [PR.month, uid, v]).then(function(){
@@ -2144,10 +2160,12 @@ function renderPayroll(){
     return '<tr><td class="stt">' + (i + 1) + '</td><td><b>' + esc(r.name) + '</b></td>'
       + '<td class="num">' + moneyPlain(r.base_salary) + '</td>'
       + '<td class="num">' + (num(r.ot_count) || '—') + '</td>'
-      + '<td class="num">' + (num(r.ot_rate) ? moneyPlain(r.ot_rate) : '—') + '</td>'
+      + '<td class="num' + (r.ot_manual ? ' rate-manual' : '') + '"' + (r.ot_manual ? ' title="Mức nhập tay"' : '') + '>'
+      + (num(r.ot_rate) ? moneyPlain(r.ot_rate) : '—') + '</td>'
       + '<td class="num" style="color:#0F7A47">' + (c.ot ? '+' + moneyPlain(c.ot) : '—') + '</td>'
       + '<td class="num">' + (num(r.off_count) || '—') + '</td>'
-      + '<td class="num">' + (num(r.off_rate) ? moneyPlain(r.off_rate) : '—') + '</td>'
+      + '<td class="num' + (r.off_manual ? ' rate-manual' : '') + '"' + (r.off_manual ? ' title="Mức nhập tay"' : '') + '>'
+      + (num(r.off_rate) ? moneyPlain(r.off_rate) : '—') + '</td>'
       + '<td class="num" style="color:#C2303B">' + (c.off ? '−' + moneyPlain(c.off) : '—') + '</td>'
       + '<td class="num"><b style="font-size:14px">' + money(c.total) + '</b></td>'
       + '<td class="num xfer"><input type="text" inputmode="decimal" class="xferin" placeholder="Nhập…" value="'
@@ -2170,19 +2188,24 @@ function salaryDlg(uid){
   openDlg({
     title: 'Mức lương — ' + esc(u.display_name || u.username),
     body: '<label class="fld"><span>Lương cơ bản / tháng (đ)</span>'
-        + '<input type="text" inputmode="decimal" id="sl_base" value="' + (num(u.base_salary) ? moneyPlain(u.base_salary) : '') + '"></label>'
+        + '<input type="text" inputmode="decimal" id="sl_base" oninput="slAuto()" value="' + (num(u.base_salary) ? moneyPlain(u.base_salary) : '') + '"></label>'
         + '<div class="grid2">'
         + '<label class="fld"><span>Mức tăng ca / buổi (đ)</span>'
-        + '<input type="text" inputmode="decimal" id="sl_ot" value="' + (num(u.ot_rate) ? moneyPlain(u.ot_rate) : '') + '"></label>'
+        + '<input type="text" inputmode="decimal" id="sl_ot" data-manual="' + (num(u.ot_rate) ? 1 : '') + '"'
+        + ' oninput="slRateInput(this)" onblur="slAuto()" value="' + (num(u.ot_rate) ? moneyPlain(u.ot_rate) : '') + '"></label>'
         + '<label class="fld"><span>Mức trừ OFF / buổi (đ)</span>'
-        + '<input type="text" inputmode="decimal" id="sl_off" value="' + (num(u.off_rate) ? moneyPlain(u.off_rate) : '') + '"></label>'
-        + '</div><p class="hint" style="margin:0">Thực nhận = Lương cơ bản + số buổi tăng ca × mức tăng ca − số buổi OFF × mức trừ OFF.</p>',
+        + '<input type="text" inputmode="decimal" id="sl_off" data-manual="' + (num(u.off_rate) ? 1 : '') + '"'
+        + ' oninput="slRateInput(this)" onblur="slAuto()" value="' + (num(u.off_rate) ? moneyPlain(u.off_rate) : '') + '"></label>'
+        + '</div><p class="hint" style="margin:0">Tự động: <b>1 buổi OFF = lương cơ bản ÷ 26 ÷ 2</b>, <b>tăng ca = 1 buổi × 1,5</b>. '
+        + 'Gõ số khác thì ô chuyển <span class="rate-manual">màu tím</span> (nhập tay); xóa trắng ô thì quay lại tự động.<br>'
+        + 'Thực nhận = Lương cơ bản + số buổi tăng ca × mức tăng ca − số buổi OFF × mức trừ OFF.</p>',
     buttons: [
       { label: 'Hủy', act: closeDlg },
       { label: 'Lưu', cls: 'primary', act: function(){
-          var v = { base_salary: docSo(document.getElementById('sl_base').value),
-                    ot_rate: docSo(document.getElementById('sl_ot').value),
-                    off_rate: docSo(document.getElementById('sl_off').value) };
+          var ot = document.getElementById('sl_ot'), off = document.getElementById('sl_off');
+          var v = { base_salary: docTien(document.getElementById('sl_base').value),
+                    ot_rate: ot.dataset.manual ? docTien(ot.value) : 0,      // 0 = tự động theo lương cơ bản
+                    off_rate: off.dataset.manual ? docTien(off.value) : 0 };
           call('apiSaveSalary', [uid, v]).then(function(){
             closeDlg();
             return reloadAll().then(loadPayroll);
@@ -2190,7 +2213,24 @@ function salaryDlg(uid){
         } },
     ],
   });
+  slAuto();
   setTimeout(function(){ document.getElementById('sl_base').focus(); }, 60);
+}
+
+/** Ô mức chưa nhập tay thì hiện mức tự động theo lương cơ bản; ô nhập tay tô tím. */
+function slAuto(){
+  var a = autoRates(docTien(document.getElementById('sl_base').value));
+  [['sl_ot', a.ot], ['sl_off', a.off]].forEach(function(x){
+    var el = document.getElementById(x[0]);
+    if (!el) return;
+    if (!el.dataset.manual) el.value = x[1] ? moneyPlain(x[1]) : '';
+    el.classList.toggle('manual', !!el.dataset.manual);
+    el.title = el.dataset.manual ? 'Nhập tay — xóa trắng để quay lại tự động' : 'Tự động theo lương cơ bản';
+  });
+}
+function slRateInput(el){
+  el.dataset.manual = el.value.trim() ? '1' : '';
+  el.classList.toggle('manual', !!el.dataset.manual);
 }
 
 function prLock(){
