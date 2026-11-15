@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.15-23';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.15-24';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -2262,6 +2262,7 @@ function renderSettings(){
   document.getElementById('st_driveName').innerHTML = s.drive_root_name
     ? '📁 Đang dùng thư mục: <b>' + esc(s.drive_root_name) + '</b>' : 'Chưa chọn thư mục.';
   document.getElementById('st_lastSync').textContent = s.last_sync || '';
+  renderRenameBox();
   document.getElementById('st_autosync').textContent = s.auto_sync === '1'
     ? '⏸ Tắt tự đồng bộ' : '⏰ Bật tự đồng bộ 15 phút';
   document.getElementById('st_name').value = s.user_display_name || '';
@@ -2336,6 +2337,33 @@ function syncDrive(){
   toast('Đang đồng bộ thư mục Drive…');
   call('apiSyncDrive').then(function(r){
     return reloadAll().then(function(){ toast(r.summary, 'ok'); });
+  }).catch(fail);
+}
+
+/** Số thư mục chờ thêm tên đối tác (giống pendingRenameCount_ ở máy chủ). */
+function pendingRenames(){
+  return DB.projects.filter(function(p){
+    return p.drive_id && p.folder_state !== 'missing' && p.partner_id
+      && /thi[eế]t k[eế]|th[aẩ]m tra/i.test(catName(p.category || '') + ' ' + (p.category || ''))
+      && !/\([^()]+\)\s*$/.test(String(p.folder_name || '').trim());
+  });
+}
+function renderRenameBox(){
+  var el = document.getElementById('st_renamePending');
+  if (!el) return;
+  var n = pendingRenames().length;
+  el.innerHTML = n ? 'Đang chờ đổi tên: <b>' + n + '</b> thư mục' : 'Không có thư mục nào chờ đổi tên.';
+  document.getElementById('st_lastRename').textContent = (DB.settings || {}).last_rename
+    ? 'Lần đổi gần nhất: ' + DB.settings.last_rename : '';
+}
+function renameNow(){
+  var n = pendingRenames().length;
+  if (!n) return toast('Không có thư mục nào chờ đổi tên.', 'ok');
+  if (!confirm('Đổi tên ' + n + ' thư mục ngay bây giờ?\nNếu nhân viên đang mở file trong thư mục thì nên đợi 23h.')) return;
+  call('apiRenameFoldersNow', []).then(function(r){
+    return reloadAll().then(function(){
+      toast('Đã đổi tên ' + r.renamed + ' thư mục' + (r.failed ? ', lỗi ' + r.failed : '') + '.', r.failed ? 'err' : 'ok');
+    });
   }).catch(fail);
 }
 

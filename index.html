@@ -438,6 +438,16 @@
             <button class="btn" onclick="toggleAutoSync()" id="st_autosync">Bật tự đồng bộ 15 phút</button>
           </div>
           <p class="hint" id="st_lastSync"></p>
+          <div class="renamebox">
+            <b>🌙 Thêm tên đối tác vào thư mục — tự động lúc 23h hằng đêm</b>
+            <p class="hint" style="margin:4px 0 8px">Thư mục chưa có tên đối tác, sau khi đã chọn đối tác trong app, sẽ được đổi
+              thành <b>07. Nhà anh B (Tên đối tác)</b> lúc 23h (không ai làm trong thư mục). Thư mục đã có (…) thì giữ nguyên.</p>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <span id="st_renamePending" class="hint"></span>
+              <button class="btn sm" onclick="renameNow()">Đổi tên ngay</button>
+            </div>
+            <p class="hint" id="st_lastRename" style="margin:6px 0 0"></p>
+          </div>
 
           <h3>Tùy chọn</h3>
           <label class="fld"><span>Tên viết tắt đơn vị (hiện trên file Excel xuất ra)</span>
