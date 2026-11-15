@@ -299,3 +299,44 @@ tbody tr.gone td{color:#9AA7B6}
   .navgroup{flex-direction:row;gap:6px}
   .navbtn .navcount{margin-left:4px}
 }
+
+/* ============================================================ KHUNG (PANEL) — tiêu đề dải màu */
+.panel{padding:18px 20px 20px;overflow:hidden}
+.panel > h3:first-child{
+  margin:-18px -20px 16px;padding:13px 20px;font-size:13px;font-weight:700;letter-spacing:.7px;color:#fff;
+  background:linear-gradient(110deg,var(--navy) 0%,var(--navy-2) 60%,#1B5BB0 100%);
+  border-bottom:3px solid var(--gold);display:flex;align-items:center;gap:9px}
+.panel > h3:first-child::after{display:none}
+.panel > h3:first-child::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--gold);
+  box-shadow:0 0 0 3px rgba(245,165,36,.25)}
+/* tiêu đề phụ giữa khung (vd "Tùy chọn") */
+.panel > h3:not(:first-child){
+  margin:24px -20px 14px;padding:10px 20px;font-size:12.5px;color:var(--navy);letter-spacing:.6px;
+  background:linear-gradient(90deg,#E4EEFB,#F4F8FE);border-top:1px solid #D3E1F3;border-bottom:1px solid #D3E1F3}
+.panel > h3:not(:first-child)::after{display:none}
+/* đoạn giải thích đầu khung -> hộp ghi chú */
+.panel > h3 + p.hint, .panel > h3 + .hint{
+  margin:0 0 14px !important;padding:10px 13px;border-radius:9px;background:#F1F6FD;
+  border-left:3px solid var(--blue);color:#3A5175;line-height:1.55}
+.panel > h3 + p.hint b{color:var(--navy)}
+/* khung con trong khung (Đổi mật khẩu, Tài khoản nhân viên, Sao lưu…) */
+.panel .sect{background:#F8FAFD;border-color:#DCE6F2}
+.panel .sect > h4{margin:-14px -14px 12px;padding:10px 14px;background:linear-gradient(90deg,#FFF3D9,#FFFAF0);
+  border-bottom:1px solid #F1DDB0;border-radius:11px 11px 0 0;color:#6B4300}
+.panel .sect > h4::before{background:var(--gold)}
+.panel .sect > p.hint:first-of-type{margin-top:0}
+/* nhãn ô nhập rõ hơn */
+label.fld > span{color:#2E4567}
+/* bảng nhỏ trong khung */
+.panel .tablewrap{box-shadow:none;border-color:#DCE6F2}
+
+/* ============================================================ ĐỘ RỘNG CỘT */
+/* Tên công trình / đối tác không bị bóp thành nhiều dòng; ghi chú dài thì xuống dòng gọn trong cột */
+#tblProjects td:nth-child(2),#tblDebt td:nth-child(2),#tblWork td:nth-child(2),
+#tblArisings td:nth-child(3),#tblRecent td:first-child{min-width:210px}
+#tblPartners td:nth-child(2){min-width:140px}
+#tblProjects td:last-child,#tblWork td:nth-child(8),#tblPartners td:last-child{min-width:170px;max-width:320px;
+  white-space:normal;line-height:1.4;font-size:12.5px;color:#4A5D78}
+#tblProjects td.mid,#tblProjects td.num{white-space:nowrap}
+/* Thẻ tuổi nợ: nhãn cao bằng nhau để số tiền thẳng hàng */
+#agingCards .card .t{min-height:34px}
