@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.15-1';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.15-3';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -1344,6 +1344,73 @@ function fmtStamp(s){
 
 function folderUrl(id){ return 'https://drive.google.com/drive/folders/' + encodeURIComponent(id); }
 
+/* --------------------------------------------- Thư mục đồng bộ trên máy tính này
+   Trình duyệt không cho trang web mở thẳng ổ cứng. Hai cách:
+   - "copy": chép đường dẫn, người dùng dán vào thanh địa chỉ Explorer.
+   - "open": máy đã cài bộ "Mở 1 chạm" (mo-thu-muc/) -> liên kết qlct-open: mở Explorer.
+   Đường dẫn gốc mỗi máy một khác nên lưu trong localStorage của máy đó. */
+
+function localRoot(){ return lsGet('local_root'); }
+function localMode(){ return lsGet('local_mode') || 'copy'; }
+
+/** <gốc trên máy>\<thư mục loại việc>\<thư mục công trình> — dùng / nếu gốc là đường dẫn kiểu Mac. */
+function localPath(p){
+  var root = localRoot();
+  if (!root || !p.drive_id) return '';
+  var sep = root.indexOf('\\') < 0 && root.indexOf('/') >= 0 ? '/' : '\\';
+  return [root.replace(/[\\\/]+$/, ''), p.category, p.folder_name || p.name].filter(String).join(sep);
+}
+
+function localBtn(p){
+  var tip = localRoot() ? (localMode() === 'open' ? 'Mở thư mục trên máy' : 'Chép đường dẫn thư mục trên máy')
+                        : 'Chưa khai báo thư mục trên máy này';
+  return '<button class="btn ghost sm" title="' + tip + '" onclick="event.stopPropagation();openLocal(' + p.id + ')">💻</button>';
+}
+
+function openLocal(id){
+  var p = DB.projects.filter(function(x){ return String(x.id) === String(id); })[0];
+  if (!p) return;
+  if (!localRoot()){
+    toast('Khai báo đường dẫn thư mục gốc trên máy này trước.', 'err');
+    go('settings');
+    setTimeout(function(){ document.getElementById('lc_root').focus(); }, 80);
+    return;
+  }
+  var path = localPath(p);
+  if (!p.folder_name) toast('Bấm “Đồng bộ Drive” một lần để lấy đúng tên thư mục.', 'err');
+  if (localMode() === 'open'){
+    var a = document.createElement('a');
+    a.href = 'qlct-open:' + encodeURIComponent(path);
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    return;
+  }
+  copyText(path, 'Đã chép đường dẫn. Mở Explorer (Win+E), bấm Ctrl+L, dán Ctrl+V, Enter.');
+}
+
+function saveLocal(){
+  var root = document.getElementById('lc_root').value.trim().replace(/^"|"$/g, '');
+  lsSet('local_root', root);
+  lsSet('local_mode', document.getElementById('lc_mode').value);
+  renderWork();
+  toast(root ? 'Đã lưu thư mục cho máy này.' : 'Đã xóa thư mục của máy này.', 'ok');
+}
+
+function localHelp(){
+  openDlg({
+    title: 'Lấy đường dẫn thư mục gốc trên máy',
+    body: '<ol style="margin:0;padding-left:20px;line-height:1.8">'
+        + '<li>Mở <b>File Explorer</b> (Win+E) › vào ổ <b>Google Drive</b> (thường là <b>G:</b>).</li>'
+        + '<li>Mở tới thư mục gốc chứa <b>1. THIẾT KẾ</b>, <b>2. THẨM TRA</b>.</li>'
+        + '<li>Bấm vào <b>thanh địa chỉ</b> phía trên, đường dẫn hiện ra dạng <code>G:\\My Drive\\…</code> › Ctrl+C.</li>'
+        + '<li>Quay lại đây dán vào ô <b>Đường dẫn thư mục gốc</b> › <b>Lưu cho máy này</b>.</li></ol>'
+        + '<div class="sect"><h4>Mở 1 chạm (Windows)</h4>'
+        + '<p style="margin:0">Tải <b>bộ cài “Mở 1 chạm”</b> › chạy file vừa tải (Windows hỏi thì bấm <i>Thêm thông tin › Vẫn chạy</i>) › '
+        + 'chọn “Mở thẳng thư mục” › Lưu. Lần đầu bấm 💻 trình duyệt hỏi cho phép mở ứng dụng: tích '
+        + '<i>Luôn cho phép</i> › Mở. Bộ cài không cần quyền quản trị, chỉ mở được thư mục có thật, không chạy file nào.</p></div>',
+    buttons: [{ label: 'Đóng', cls: 'primary', act: closeDlg }],
+  });
+}
+
 function workRows(){
   return DB.projects.map(function(p){
     var pend = 0, ok = 0;
@@ -1399,7 +1466,7 @@ function renderWork(){
   rows.forEach(function(r){
     var c = r.category || '';
     if (c !== last){
-      html += '<tr class="grp"><td colspan="9">' + esc(c || 'Khác — thêm tay, không có thư mục Drive')
+      html += '<tr class="grp"><td colspan="10">' + esc(c || 'Khác — thêm tay, không có thư mục Drive')
         + ' · ' + counts[c] + ' công trình</td></tr>';
       last = c;
     }
@@ -1426,10 +1493,11 @@ function renderWork(){
       + (r.updated_at ? '<br><span class="hint">' + fmtStamp(r.updated_at) + '</span>' : '') + '</td>'
       + '<td>' + esc(r.note) + '</td>'
       + '<td class="mid">' + (r.drive_id ? '<a href="' + folderUrl(r.drive_id) + '" target="_blank" rel="noopener"'
-          + ' onclick="event.stopPropagation()" title="Mở thư mục trên Drive">📁</a>' : '') + '</td></tr>';
+          + ' onclick="event.stopPropagation()" title="Mở thư mục trên Drive">📁</a>' : '') + '</td>'
+      + '<td class="mid">' + (r.drive_id ? localBtn(r) : '') + '</td></tr>';
   });
   document.querySelector('#tblWork tbody').innerHTML = html
-    || '<tr><td colspan="9" class="empty">' + (DB.projects.length ? 'Không có công trình nào khớp bộ lọc.'
+    || '<tr><td colspan="10" class="empty">' + (DB.projects.length ? 'Không có công trình nào khớp bộ lọc.'
        : 'Chưa có công trình. ' + (isAdmin() ? 'Vào Thiết lập → Thư mục Google Drive để liên kết thư mục.'
                                              : 'Bấm “Đồng bộ Drive” để lấy danh sách.')) + '</td></tr>';
   if (SEL.tblWork) pick('tblWork', SEL.tblWork);
@@ -1466,14 +1534,17 @@ function workDlg(id){
       '<p class="hint" style="margin-top:0">' + info
       + (p.drive_id ? ' · <a href="' + folderUrl(p.drive_id) + '" target="_blank" rel="noopener">📁 Mở thư mục</a>' : '')
       + (p.updated_by ? ' · Cập nhật: ' + esc(p.updated_by) + ' ' + fmtStamp(p.updated_at) : '') + '</p>'
-      + '<div class="grid2">'
-      + '<label class="fld"><span>Tổng diện tích sàn (m²)</span>'
+      + '<div class="grid3 wk-row">'
+      + '<label class="fld"><span>Đối tác' + (p.partner_hint && !p.partner_id
+          ? ' <em class="hint-inline">(thư mục ghi: ' + esc(p.partner_hint) + ')</em>' : '') + '</span>'
+      + '<select id="wk_partner">' + partnerOptions(p.partner_id) + '</select></label>'
+      + '<div><label class="fld"><span>Tổng diện tích sàn (m²)</span>'
       + '<input type="text" inputmode="decimal" id="pj_area" value="' + (num(p.area) ? dienTichVn(p.area) : '') + '"></label>'
+      + '<button class="btn sm" onclick="pjOpenFloors()" id="pj_floorBtn" style="margin:-4px 0 6px"></button></div>'
       + '<label class="fld"><span>Tình trạng</span>'
       + '<input type="text" id="wk_status" list="wk_statusList" value="' + esc(p.status) + '">'
       + statusDatalist() + '</label>'
       + '</div>'
-      + '<button class="btn sm" onclick="pjOpenFloors()" id="pj_floorBtn"></button>'
       + '<label class="fld" style="margin-top:12px"><span>Ghi chú</span>'
       + '<textarea id="wk_note" placeholder="VD: Cải tạo (tính 40% diện tích), nâng thêm 2 tầng…">'
       + esc(p.note) + '</textarea></label>'
@@ -1492,6 +1563,15 @@ function workDlg(id){
   wkRenderArisings();
   pjRecalc();
   setTimeout(function(){ var el = document.getElementById('pj_area'); el.focus(); el.select(); }, 60);
+}
+
+/** Danh sách đối tác xếp theo tên (tiếng Việt) cho ô chọn. */
+function partnerOptions(selectedId){
+  var list = DB.partners.slice().sort(function(a, b){ return catCmp(a.name, b.name); });
+  return '<option value="">— Chọn đối tác —</option>' + list.map(function(x){
+    return '<option value="' + x.id + '"' + (String(x.id) === String(selectedId) ? ' selected' : '') + '>'
+      + esc(x.name) + '</option>';
+  }).join('');
 }
 
 function wkRenderArisings(){
@@ -1541,6 +1621,7 @@ function wkDelArising(aid){
 function wkSave(){
   var rec = {
     id: PD.id,
+    partner_id: document.getElementById('wk_partner').value || '',
     area: docSo(document.getElementById('pj_area').value),
     status: document.getElementById('wk_status').value,
     note: document.getElementById('wk_note').value,
@@ -1706,7 +1787,9 @@ function renderSettings(){
   document.getElementById('stTitle').textContent = isAdmin() ? 'Thiết lập' : 'Tài khoản';
   document.getElementById('stSub').textContent = isAdmin()
     ? 'Tài khoản, nhân viên, thư mục Drive, sao lưu và dữ liệu' : 'Đổi mật khẩu đăng nhập';
-  document.getElementById('st_me').innerHTML = 'Đang đăng nhập: <b>' + esc(ME.name) + '</b> ('
+  document.getElementById('lc_root').value = localRoot();
+  document.getElementById('lc_mode').value = localMode();
+  document.getElementById('st_me').innerHTML ='Đang đăng nhập: <b>' + esc(ME.name) + '</b> ('
     + esc(ME.username) + ') — ' + esc(ME.title);
   document.getElementById('st_drive').value = s.drive_root_id
     ? 'https://drive.google.com/drive/folders/' + s.drive_root_id : '';

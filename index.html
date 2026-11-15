@@ -10,6 +10,9 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="icon.svg">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -137,7 +140,7 @@
           <thead><tr><th class="stt">STT</th><th>Công trình</th><th class="mid">Đối tác</th>
             <th class="num">Diện tích (m²)</th><th class="mid">Tình trạng</th>
             <th class="mid">Phát sinh</th><th class="mid">Cập nhật</th><th>Ghi chú</th>
-            <th class="mid">Thư mục</th></tr></thead>
+            <th class="mid">Drive</th><th class="mid" title="Mở thư mục đồng bộ trên máy tính này">Máy tính</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -283,6 +286,28 @@
     <!-- ------------------------------------------------------- THIẾT LẬP -->
     <section class="page" id="page-settings">
       <div class="phead"><div><h1 id="stTitle">Thiết lập</h1><p id="stSub">Tài khoản, cảnh báo, sao lưu và dữ liệu</p></div></div>
+
+      <div class="panel" style="margin-bottom:16px">
+        <h3>Thư mục trên máy tính này</h3>
+        <p class="hint" style="margin-top:0">Máy có cài <b>Google Drive cho máy tính</b> thì thư mục công trình đã đồng bộ về ổ cứng.
+          Dán đường dẫn của <b>thư mục gốc</b> (thư mục chứa “1. THIẾT KẾ”, “2. THẨM TRA”) trên máy này,
+          cột <b>💻 Máy tính</b> ở trang Công việc sẽ mở đúng thư mục từng công trình.
+          Mỗi máy khai báo riêng, chỉ lưu trên máy đó.</p>
+        <div class="grid2" style="align-items:end">
+          <label class="fld"><span>Đường dẫn thư mục gốc trên máy này</span>
+            <input type="text" id="lc_root" placeholder="VD: G:\My Drive\Cong trinh 2026" spellcheck="false"></label>
+          <label class="fld"><span>Khi bấm 💻</span>
+            <select id="lc_mode">
+              <option value="copy">Chép đường dẫn (dán vào Explorer)</option>
+              <option value="open">Mở thẳng thư mục (máy đã cài “Mở 1 chạm”)</option>
+            </select></label>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <button class="btn primary" onclick="saveLocal()">Lưu cho máy này</button>
+          <a class="btn" href="mo-thu-muc/cai_mo_thu_muc.cmd" download>⬇ Tải bộ cài “Mở 1 chạm” (Windows)</a>
+          <button class="btn sm ghost" onclick="localHelp()">Cách lấy đường dẫn?</button>
+        </div>
+      </div>
 
       <div class="chartrow">
         <div class="panel">
