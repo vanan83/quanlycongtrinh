@@ -612,3 +612,7 @@ select.pfilter.on{border-color:var(--blue);background-color:#EAF2FE;color:var(--
   .tsday .dn{margin-bottom:3px}
   .tsday{min-height:0}
 }
+
+/* Cột "Đã nhận": số ngày từ khi đối tác gửi — xanh ≤ 3 ngày, vàng 4–7, đỏ > 7, xám khi đã xong */
+.chip.days{font-weight:700;white-space:nowrap}
+.chip.gray{background:#EEF1F5;color:#7A8796}

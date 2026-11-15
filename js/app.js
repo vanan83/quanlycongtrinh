@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.15-17';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.15-18';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -963,7 +963,7 @@ function projectDlg(p){
       + esc(p.status) + '">' + statusDatalist() + '</label>'
       + '</div>'
       + '<div class="grid2">'
-      + '<label class="fld"><span>Ngày lập</span>'
+      + '<label class="fld"><span>Ngày nhận (đối tác gửi)</span>'
       + '<input type="date" id="pj_create" value="' + (p.create_date || '') + '"></label>'
       + '<div></div></div>'
 
@@ -1535,7 +1535,7 @@ function renderWork(){
   rows.forEach(function(r){
     var c = r.category || '';
     if (all && c !== last){   // tab một loại việc thì không cần dòng nhóm
-      html += '<tr class="grp"><td colspan="10">' + esc(c ? catLabel(c) : 'Khác — thêm tay, không có thư mục Drive')
+      html += '<tr class="grp"><td colspan="11">' + esc(c ? catLabel(c) : 'Khác — thêm tay, không có thư mục Drive')
         + ' · ' + counts[c] + ' công trình</td></tr>';
       last = c;
     }
@@ -1555,6 +1555,7 @@ function renderWork(){
       + '<td><b>' + esc(r.name) + '</b>' + (r.permit === '1' ? ' <span class="chip blue" title="Có xin phép xây dựng">XPXD</span>' : '')
       + (gone ? ' <span class="chip red">thư mục đã xóa</span>' : '') + '</td>'
       + '<td class="mid">' + partner + '</td>'
+      + '<td class="mid">' + recvCell(r) + '</td>'
       + '<td class="num">' + (num(r.area) ? '<b>' + dienTichVn(r.area) + '</b>'
                                           : '<span class="chip amber">chưa nhập</span>') + '</td>'
       + '<td class="mid">' + st + '</td>'
@@ -1567,10 +1568,28 @@ function renderWork(){
       + '<td class="mid">' + (r.drive_id ? localBtn(r) : '') + '</td></tr>';
   });
   document.querySelector('#tblWork tbody').innerHTML = html
-    || '<tr><td colspan="10" class="empty">' + (DB.projects.length ? 'Không có công trình nào khớp bộ lọc.'
+    || '<tr><td colspan="11" class="empty">' + (DB.projects.length ? 'Không có công trình nào khớp bộ lọc.'
        : 'Chưa có công trình. ' + (isAdmin() ? 'Vào Thiết lập → Thư mục Google Drive để liên kết thư mục.'
                                              : 'Bấm “Đồng bộ Drive” để lấy danh sách.')) + '</td></tr>';
   if (SEL.tblWork) pick('tblWork', SEL.tblWork);
+}
+
+/** Số ngày từ lúc đối tác gửi (ngày tạo thư mục công trình / ngày nhận) đến hôm nay. */
+function daysSince(iso){
+  if (!iso || !TODAY) return null;
+  var a = new Date(String(iso).slice(0, 10) + 'T00:00:00'), b = new Date(TODAY + 'T00:00:00');
+  if (isNaN(a) || isNaN(b)) return null;
+  return Math.round((b - a) / 86400000);
+}
+/** Công trình đã xong / đã gửi bản vẽ thì không cần đếm ngày gấp nữa. */
+function isDoneStatus(st){ return /ho[àa]n th[àa]nh|đ[ãa] g[ửu]i|xong|^ok$/i.test(String(st || '')); }
+function recvCell(r){
+  var d = daysSince(r.create_date);
+  if (d === null) return '<span class="hint">—</span>';
+  var cls = isDoneStatus(r.status) ? 'gray' : d <= 3 ? 'green' : d <= 7 ? 'amber' : 'red';
+  var txt = d <= 0 ? 'Hôm nay' : d + ' ngày';
+  return '<span class="chip days ' + cls + '" title="Đối tác gửi ngày ' + vn(r.create_date) + '">' + txt + '</span>'
+    + '<br><span class="hint" style="font-size:11px">' + vn(r.create_date) + '</span>';
 }
 
 function editWork(){
