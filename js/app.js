@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.15-18';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.15-19';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -1586,8 +1586,10 @@ function isDoneStatus(st){ return /ho[àa]n th[àa]nh|đ[ãa] g[ửu]i|xong|^ok$
 function recvCell(r){
   var d = daysSince(r.create_date);
   if (d === null) return '<span class="hint">—</span>';
-  var cls = isDoneStatus(r.status) ? 'gray' : d <= 3 ? 'green' : d <= 7 ? 'amber' : 'red';
-  var txt = d <= 0 ? 'Hôm nay' : d + ' ngày';
+  var done = isDoneStatus(r.status);
+  var cls = done ? 'gray' : d <= 3 ? 'green' : d <= 7 ? 'amber' : 'red';
+  // đã xong / đã gửi bản vẽ: không đếm ngày nữa, ghi rõ "✓ Xong" để khỏi lẫn với nhãn đang chờ
+  var txt = done ? '✓ Xong' : d <= 0 ? 'Hôm nay' : d + ' ngày';
   return '<span class="chip days ' + cls + '" title="Đối tác gửi ngày ' + vn(r.create_date) + '">' + txt + '</span>'
     + '<br><span class="hint" style="font-size:11px">' + vn(r.create_date) + '</span>';
 }
