@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.15-25';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.15-26';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -2030,7 +2030,7 @@ function renderSheet(){
   tsEntries(TS.uid).forEach(function(r){ mine[r.date + '|' + r.session] = 1; });
   var can = TS.uid !== null && !d.locked;
   var h = '<div class="tsgrid">' + WD.map(function(w, i){
-    return '<div class="tshead' + (i === 6 ? ' sun' : '') + '">' + w + '</div>';
+    return '<div class="tshead' + (i === 6 ? ' sun' : i === 5 ? ' sat' : '') + '">' + w + '</div>';
   }).join('');
   for (var i = 0; i < lead; i++) h += '<div class="tsday blank"></div>';
   for (var dd = 1; dd <= days; dd++){
@@ -2038,7 +2038,7 @@ function renderSheet(){
     var wd = (lead + dd - 1) % 7;
     var ses = TS_SESS[TS.kind];
     var cnt = ses.filter(function(s){ return mine[iso + '|' + s]; }).length;
-    h += '<div class="tsday' + (wd === 6 ? ' sun' : '') + (iso === TODAY ? ' today' : '') + (cnt ? ' has' : '')
+    h += '<div class="tsday' + (wd === 6 ? ' sun' : wd === 5 ? ' sat' : '') + (iso === TODAY ? ' today' : '') + (cnt ? ' has' : '')
  + '">'
       + '<div class="dn">' + dd + '</div><div class="slots">'
       + ses.map(function(s){
