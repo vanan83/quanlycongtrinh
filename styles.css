@@ -484,3 +484,12 @@ body.role-staff .not-admin-only{display:inline} body:not(.role-staff) .not-admin
 @media (max-width:720px){ .tsday{min-height:64px;padding:4px} .slot{min-width:0;height:24px;font-size:11px} .tsgrid{gap:3px} }
 #tblPayroll th,#tblPayroll td{padding-left:9px;padding-right:9px}
 #tblPayroll tfoot td,#tblPayroll td:nth-child(2){white-space:nowrap}
+/* Chấm công theo lịch làm việc: ô chữ "Sáng / Chiều", buổi không làm thì ghi chú mờ */
+.slot.wide{font-size:11.5px;font-weight:700;min-width:0;padding:0 2px}
+.slot.off.on.wide{font-size:11px}
+.slot-rest{flex:1 1 0;display:grid;place-items:center;height:28px;font-size:11px;color:#A3AFBF;font-style:italic;
+  border-radius:7px;background:repeating-linear-gradient(135deg,#F3F5F9,#F3F5F9 5px,#ECEFF4 5px,#ECEFF4 10px)}
+.tsday.rest{background:#F7F8FA}
+.tswork{font-size:13px;line-height:1.8;padding:8px 10px;margin:0 0 10px;background:#F1F6FD;border-radius:9px;border-left:3px solid var(--blue)}
+.slot-rest{white-space:nowrap}
+.slot-rest.mini{display:inline-grid;width:22px;height:20px;flex:none;font-style:normal}

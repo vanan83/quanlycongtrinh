@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.15-14';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.15-15';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -1838,6 +1838,20 @@ var TS_SESS = { off: ['sang', 'chieu'], ot: ['sang', 'chieu', 'toi'] };
 var SESS_LB = { sang: 'Sáng', chieu: 'Chiều', toi: 'Tối' };
 var SESS_SHORT = { sang: 'S', chieu: 'C', toi: 'T' };
 var WD = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+/** Lịch làm việc (thứ trong tuần, 0 = T2 … 6 = CN): T2–T6 sáng + chiều, T7 chỉ sáng, CN nghỉ.
+ *  Chỉ buổi có làm việc mới chấm OFF được. Đổi lịch thì sửa ở đây và WORK_SESSIONS trong CongViec.gs. */
+var WORK_SESS = [['sang', 'chieu'], ['sang', 'chieu'], ['sang', 'chieu'], ['sang', 'chieu'], ['sang', 'chieu'], ['sang'], []];
+
+/** Các buổi hiện ô cho một ngày: OFF theo lịch làm việc, tăng ca thì mọi buổi. */
+function daySessions(kind, wd){ return kind === 'off' ? WORK_SESS[wd] : TS_SESS.ot; }
+
+/** Số buổi làm việc trong tháng theo lịch. */
+function workSessionsInMonth(month){
+  var y = Number(month.slice(0, 4)), m = Number(month.slice(5, 7)), n = 0;
+  var days = new Date(y, m, 0).getDate();
+  for (var d = 1; d <= days; d++) n += WORK_SESS[(new Date(y, m - 1, d).getDay() + 6) % 7].length;
+  return n;
+}
 
 function monthLabel(m){ return 'Tháng ' + Number(m.slice(5, 7)) + '/' + m.slice(0, 4); }
 function monthAdd(m, n){
@@ -1880,11 +1894,13 @@ function renderSheet(){
   if (!d) return;
   document.getElementById('tsTitle').textContent = off ? 'Chấm công' : 'Tăng ca';
   document.getElementById('tsSub').textContent = off
-    ? 'Bấm ô Sáng / Chiều vào ngày nghỉ (OFF). Mỗi ô là một buổi, nghỉ cả ngày là 2 buổi.'
+    ? 'Lịch làm việc: thứ 2 – thứ 6 (sáng, chiều) và sáng thứ 7. Nghỉ buổi nào thì bấm vào ô buổi đó để chấm OFF.'
     : 'Bấm ô Sáng / Chiều / Tối vào buổi đã tăng ca. Mỗi ô là một buổi.';
   document.getElementById('tsSumTitle').textContent = isAdmin()
     ? (off ? 'Số buổi OFF trong tháng' : 'Số buổi tăng ca trong tháng') : 'Tháng này của bạn';
-  document.getElementById('tsLegend').innerHTML = TS_SESS[TS.kind].map(function(s){
+  document.getElementById('tsLegend').innerHTML = off
+    ? '<b class="slot off on mini">✕</b> OFF (nghỉ) &nbsp; <span class="slot-rest mini">—</span> không có lịch làm'
+    : TS_SESS[TS.kind].map(function(s){
     return '<b class="slot ' + (off ? 'off' : 'ot') + ' on mini">' + SESS_SHORT[s] + '</b> ' + SESS_LB[s];
   }).join(' &nbsp; ');
   document.getElementById('tsLock').innerHTML = d.locked
@@ -1915,16 +1931,20 @@ function renderSheet(){
   for (var dd = 1; dd <= days; dd++){
     var iso = TS.month + '-' + ('0' + dd).slice(-2);
     var wd = (lead + dd - 1) % 7;
-    var cnt = TS_SESS[TS.kind].filter(function(s){ return mine[iso + '|' + s]; }).length;
-    h += '<div class="tsday' + (wd === 6 ? ' sun' : '') + (iso === TODAY ? ' today' : '') + (cnt ? ' has' : '') + '">'
+    var ses = daySessions(TS.kind, wd);
+    var cnt = ses.filter(function(s){ return mine[iso + '|' + s]; }).length;
+    var rest = off && ses.length < 2;    // chiều T7 / CN: không làm việc
+    h += '<div class="tsday' + (wd === 6 ? ' sun' : '') + (iso === TODAY ? ' today' : '') + (cnt ? ' has' : '')
+      + (off && !ses.length ? ' rest' : '') + '">'
       + '<div class="dn">' + dd + '</div><div class="slots">'
-      + TS_SESS[TS.kind].map(function(s){
+      + ses.map(function(s){
           var on = !!mine[iso + '|' + s];
-          return '<button class="slot ' + (off ? 'off' : 'ot') + (on ? ' on' : '') + '"'
+          return '<button class="slot ' + (off ? 'off wide' : 'ot') + (on ? ' on' : '') + '"'
             + (can ? ' onclick="tsToggle(\'' + iso + '\',\'' + s + '\')"' : ' disabled')
-            + ' title="' + SESS_LB[s] + ' ' + vn(iso) + (on ? (off ? ' — nghỉ' : ' — tăng ca') : '') + '">'
-            + SESS_SHORT[s] + '</button>';
+            + ' title="' + SESS_LB[s] + ' ' + vn(iso) + (on ? (off ? ' — nghỉ (OFF)' : ' — tăng ca') : (off ? ' — bấm để chấm OFF' : '')) + '">'
+            + (off ? (on ? '✕ OFF' : SESS_LB[s]) : SESS_SHORT[s]) + '</button>';
         }).join('')
+      + (rest ? '<span class="slot-rest">' + (ses.length ? 'Nghỉ' : 'Không làm') + '</span>' : '')
       + '</div></div>';
   }
   document.getElementById('tsCal').innerHTML = h + '</div>';
@@ -1940,8 +1960,11 @@ function renderSheet(){
       : '<p class="hint">Chưa có tài khoản nhân viên. Tạo ở Thiết lập › Tài khoản nhân viên.</p>';
   } else {
     var list = tsEntries(TS.uid).sort(function(a, b){ return (a.date + a.session).localeCompare(b.date + b.session); });
+    var wk = workSessionsInMonth(TS.month);
     sum.innerHTML = '<div class="tsbig ' + (off ? 'off' : 'ot') + '"><b>' + list.length + '</b><span>buổi '
       + (off ? 'OFF' : 'tăng ca') + '</span></div>'
+      + (off ? '<div class="tswork">Buổi làm việc trong tháng: <b>' + wk + '</b><br>Đi làm: <b>' + (wk - list.length)
+          + '</b> buổi</div>' : '')
       + (list.length ? '<ul class="tslist">' + list.map(function(r){
           return '<li>' + vn(r.date) + ' — ' + SESS_LB[r.session] + '</li>';
         }).join('') + '</ul>' : '<p class="hint">Chưa chấm buổi nào trong tháng.</p>');
