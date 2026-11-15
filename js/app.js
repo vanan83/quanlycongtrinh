@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.15-32';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.15-33';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -840,19 +840,51 @@ function renderProjects(){
     return String(r.name || '').toLowerCase().indexOf(kw) >= 0
         || String(r.partner_name || '').toLowerCase().indexOf(kw) >= 0;
   });
+  // mặc định theo số thứ tự thư mục; bấm tiêu đề cột thì sắp lại trong từng nhóm
+  rows.sort(function(a, b){
+    var ao = a.ord === null || a.ord === undefined || a.ord === '';
+    var bo = b.ord === null || b.ord === undefined || b.ord === '';
+    if (ao !== bo) return ao ? 1 : -1;
+    if (!ao && num(a.ord) !== num(b.ord)) return num(a.ord) - num(b.ord);
+    return catCmp(a.name, b.name);
+  });
   rows = applySort('tblProjects', rows);
 
+  // Tách nhóm theo loại việc (1. Thiết kế, 2. Thẩm tra… / Khác) giống trang Công việc · Tất cả
+  var groups = {}, keys = [];
+  rows.forEach(function(r){
+    var k = r.category || '';
+    if (!groups[k]) { groups[k] = []; keys.push(k); }
+    groups[k].push(r);
+  });
+  keys.sort(function(a, b){ if (!!a !== !!b) return a ? -1 : 1; return catCmp(a, b); });
+
   var tb = document.querySelector('#tblProjects tbody');
-  tb.innerHTML = rows.length ? rows.map(function(r, i){
+  var html = '';
+  keys.forEach(function(k){
+    var g = groups[k];
+    var sum = g.reduce(function(s, r){ s.amt += r._amount; s.rem += Math.max(0, r._remain); return s; }, { amt: 0, rem: 0 });
+    html += '<tr class="grp"><td colspan="12">' + esc(k ? catLabel(k) : 'Khác — thêm tay, không có thư mục Drive')
+      + ' · ' + g.length + ' công trình'
+      + '<span class="grp-sum">Thành tiền: <b>' + money(sum.amt) + '</b>'
+      + (sum.rem ? ' · Còn lại: <b class="red">' + money(sum.rem) + '</b>' : ' · <span class="ok">Đã thu đủ</span>') + '</span></td></tr>';
+    html += g.map(prRowHtml).join('');
+  });
+  tb.innerHTML = rows.length ? html
+    : '<tr><td colspan="12" class="empty">Chưa có công trình nào. Bấm “+ Thêm công trình”.</td></tr>';
+  if (SEL.tblProjects) pick('tblProjects', SEL.tblProjects);
+}
+
+function prRowHtml(r, i){
     var cls = r._remain > 0 ? 'warn' : '';
     return '<tr class="' + cls + '" data-id="' + r.id + '"'
       + ' onclick="pick(\'tblProjects\',' + r.id + ',event)"'
       + ' ondblclick="openProject(' + r.id + ')">'
-      + '<td class="stt">' + (i+1) + '</td>'
+      + '<td class="stt">' + (r.ord === null || r.ord === undefined || r.ord === '' ? i + 1 : r.ord) + '</td>'
       + '<td><b>' + esc(r.name) + '</b>' + psChip(r._ps, '', false) + '</td>'
       + '<td class="mid">' + esc(r.partner_name) + '</td>'
       + '<td class="mid">' + dienTichVn(r.area) + '</td>'
-      + '<td class="mid">' + moneyPlain(r.unit_price) + '</td>'
+      + '<td class="mid">' + (num(r.fixed_fee) > 0 ? '<span class="chip new" title="Giá tiền nhập thẳng">Giá thẳng</span>' : moneyPlain(r.unit_price)) + '</td>'
       + '<td class="mid">' + heSoVn(r.factor) + '</td>'
       + '<td class="num">' + (num(r.permit_fee) ? money(r.permit_fee) : '—') + '</td>'
       + '<td class="num">' + (r._arising ? money(r._arising) : '—') + '</td>'
@@ -862,8 +894,6 @@ function renderProjects(){
           ? '<b style="color:#D64545">' + money(r._remain) + '</b>'
           : '<span class="chip green">Đã thu đủ</span>') + '</td>'
       + '<td>' + esc(r.note) + '</td></tr>';
-  }).join('') : '<tr><td colspan="12" class="empty">Chưa có công trình nào. Bấm “+ Thêm công trình”.</td></tr>';
-  if (SEL.tblProjects) pick('tblProjects', SEL.tblProjects);
 }
 
 function addProject(){ projectDlg(null); }
