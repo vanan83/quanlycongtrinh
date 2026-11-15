@@ -134,12 +134,12 @@ label.fld > span{display:block;font-size:12px;color:#3D5170;margin-bottom:5px;fo
   box-shadow:var(--shadow);overflow:auto;max-height:calc(100vh - 270px)}
 table{width:100%;border-collapse:collapse;font-size:13.5px}
 thead th{
-  position:sticky;top:0;z-index:2;background:linear-gradient(180deg,#F1F6FD,#E7EFFA);text-align:left;
-  padding:11px 12px;border-bottom:2px solid #C9D8EC;font-size:11.5px;color:#2A4A75;font-weight:700;
+  position:sticky;top:0;z-index:2;background:linear-gradient(180deg,#16427A,#0E2F5A);text-align:left;
+  padding:13px 12px;border-bottom:3px solid var(--gold);font-size:12px;color:#fff;font-weight:700;
   text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;cursor:pointer;user-select:none;
 }
-thead th:hover{background:#DFE9F7;color:var(--navy)}
-thead th.sorted::after{content:' ▲';font-size:9px;color:var(--blue)}
+thead th:hover{background:linear-gradient(180deg,#1D5296,#143B70);color:#fff}
+thead th.sorted::after{content:' ▲';font-size:9px;color:var(--gold)}
 thead th.sorted.desc::after{content:' ▼'}
 tbody td{padding:10px 12px;border-bottom:1px solid #EDF1F6;vertical-align:middle}
 tbody tr{cursor:pointer;transition:background .1s}
@@ -240,9 +240,9 @@ body:not(.not-owner) .not-owner-only{display:none !important}
 .navbadge{margin-left:auto;background:var(--red);color:#fff;border-radius:999px;font-size:10px;
   font-weight:700;padding:1px 7px;line-height:16px;box-shadow:0 0 0 2px var(--navy)}
 .navbadge:empty{display:none}
-tbody tr.grp{cursor:default;background:linear-gradient(90deg,#E3EDFB,#F3F7FD) !important}
-tbody tr.grp:hover{background:linear-gradient(90deg,#E3EDFB,#F3F7FD) !important}
-tbody tr.grp td{font-weight:800;color:var(--navy);font-size:12px;text-transform:uppercase;
+tbody tr.grp{cursor:default;background:linear-gradient(90deg,#FFE7B8,#FFF5DF 55%,#FFFBF2) !important}
+tbody tr.grp:hover{background:linear-gradient(90deg,#FFE7B8,#FFF5DF 55%,#FFFBF2) !important}
+tbody tr.grp td{font-weight:800;color:#7A4A00;font-size:12.5px;border-bottom:1px solid #F3D9A4;text-transform:uppercase;
   letter-spacing:.6px;padding-top:10px;padding-bottom:10px;box-shadow:inset 4px 0 0 var(--gold)}
 tbody tr.gone td{color:#9AA7B6}
 .chip.gray{background:#EDF1F6;color:#556578}
@@ -282,3 +282,7 @@ tbody tr.gone td{color:#9AA7B6}
   .donutbox{flex-direction:column;align-items:stretch}
   .dlg .body{max-height:none}
 }
+
+/* Bảng nhỏ trong hộp thoại và trang Thiết lập: tiêu đề nhạt, không chiếm sự chú ý */
+.dlg thead th,.panel thead th{background:#EEF3FA;color:#2A4A75;border-bottom:2px solid #D3DFEE;padding:10px 12px;font-size:11.5px}
+.dlg thead th:hover,.panel thead th:hover{background:#E2EAF6;color:var(--navy)}
