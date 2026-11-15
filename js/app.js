@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.15-10';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.15-11';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -83,7 +83,8 @@ function daysLate(iso){
 function addDays(iso, n){
   var d = new Date((iso || TODAY) + 'T00:00:00');
   d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0,10);
+  // Lấy ngày theo giờ máy (không dùng toISOString: đổi sang UTC làm lùi 1 ngày ở múi giờ Việt Nam)
+  return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
 }
 
 function esc(s){
@@ -335,6 +336,46 @@ function metricsMap(dfrom, dto){
   return m;
 }
 
+/**
+ * Các khoản phải thu của một công trình, theo thứ tự thời gian:
+ *   1. Tiền gốc (DT × giá × hệ số + xin phép + phát sinh QL nhập tay) — hạn = Hạn thu tiền của công trình
+ *   2. Từng phát sinh đã duyệt — hạn = ngày duyệt + số ngày mặc định (Thiết lập)
+ * Tiền đã thu trả cho khoản cũ trước. Trả về khoản đầu tiên còn nợ (để tính số ngày quá hạn),
+ * cùng danh sách phát sinh còn nợ. Nhờ vậy công trình đã thu đủ rồi mới có phát sinh thì tuổi nợ
+ * tính từ ngày duyệt phát sinh, không bị báo "quá hạn" theo hạn cũ.
+ */
+function oldestUnpaid(p, paid){
+  var items = [{ kind: 'base', due: p.due_date || '',
+    amount: num(p.area) * num(p.unit_price) * num(p.factor) + num(p.permit_fee) + num(p.arising_fee) }];
+  (DB.arisings || []).filter(function(a){
+    return a.status === 'approved' && String(a.project_id) === String(p.id);
+  }).sort(function(a, b){ return String(a.reviewed_at).localeCompare(String(b.reviewed_at)); })
+    .forEach(function(a){
+      var d = String(a.reviewed_at || a.created_at || '').slice(0, 10);
+      items.push({ kind: 'arising', content: a.content, amount: num(a.approved_amount),
+                   due: addDays(/^\d{4}-\d{2}-\d{2}$/.test(d) ? d : TODAY, dueDays()) });
+    });
+  var left = num(paid);
+  for (var i = 0; i < items.length; i++){
+    if (left + 0.5 >= items[i].amount){ left -= items[i].amount; continue; }
+    var rest = items.slice(i).filter(function(x){ return x.kind === 'arising'; });
+    return { due: items[i].due, kind: items[i].kind, arisings: rest };
+  }
+  return null;
+}
+
+function paidOf(projectId){
+  return DB.advances.reduce(function(s, a){
+    return String(a.project_id) === String(projectId) ? s + num(a.amount) : s;
+  }, 0);
+}
+
+/** Hạn thu đang áp dụng: hạn của khoản cũ nhất còn nợ (không còn nợ thì dùng hạn công trình). */
+function effectiveDue(p, paid){
+  var o = oldestUnpaid(p, paid === undefined ? paidOf(p.id) : paid);
+  return o ? o.due : p.due_date;
+}
+
 /** Công trình còn phải thu (remain>0), kèm số ngày quá hạn. late=null là chưa đặt hạn. */
 function debtRows(partnerId){
   var m = metricsMap();
@@ -343,8 +384,12 @@ function debtRows(partnerId){
     if (partnerId && String(p.partner_id) !== String(partnerId)) return;
     var met = m[String(p.id)];
     if (!met || met.remain <= 0) return;
+    var o = oldestUnpaid(p, met.advanced);
+    var due = o ? o.due : p.due_date;
     rows.push({ id: p.id, name: p.name, partner: partnerName(p.partner_id),
-                due_date: p.due_date, late: daysLate(p.due_date), remain: met.remain });
+                due_date: due, late: daysLate(due), remain: met.remain,
+                afterPaid: !!(o && o.kind === 'arising'),
+                arisingText: o ? o.arisings.map(function(x){ return x.content; }).join('; ') : '' });
   });
   rows.sort(function(a,b){
     if ((a.late === null) !== (b.late === null)) return a.late === null ? 1 : -1;
@@ -426,7 +471,7 @@ function partnerDebts(dfrom, dto){
     var d = agg[k];
     d.remain += met.remain;
     d.count += 1;
-    var late = daysLate(p.due_date);
+    var late = daysLate(effectiveDue(p, met.advanced));
     if (late === null) return;
     if (late > 0) d.late = d.late === null ? late : Math.max(d.late, late);
     else { var con = -late; d.soon = d.soon === null ? con : Math.min(d.soon, con); }
@@ -814,7 +859,9 @@ function projectRows(){
       partner_name: partnerName(p.partner_id),
       _arising: num(p.arising_fee) + approvedArising(p.id),
       _amount: met.amount, _advanced: met.advanced, _remain: met.remain,
-      _late: daysLate(p.due_date),
+      _due: met.remain > 0 ? effectiveDue(p, met.advanced) : p.due_date,
+      _late: daysLate(effectiveDue(p, met.advanced)),
+      _afterPaid: (function(){ var o = met.remain > 0 ? oldestUnpaid(p, met.advanced) : null; return !!(o && o.kind === 'arising'); })(),
     });
   }).sort(function(a,b){
     var ca = a.create_date || '', cb = b.create_date || '';
@@ -841,7 +888,7 @@ function renderProjects(){
       + ' onclick="pick(\'tblProjects\',' + r.id + ',event)"'
       + ' ondblclick="openProject(' + r.id + ')">'
       + '<td class="stt">' + (i+1) + '</td>'
-      + '<td><b>' + esc(r.name) + '</b></td>'
+      + '<td><b>' + esc(r.name) + '</b>' + (r._afterPaid ? ' <span class="chip violet" title="Đã thu đủ tiền gốc, còn phát sinh duyệt sau">PS sau thanh toán</span>' : '') + '</td>'
       + '<td class="mid">' + esc(r.partner_name) + '</td>'
       + '<td class="mid">' + dienTichVn(r.area) + '</td>'
       + '<td class="mid">' + moneyPlain(r.unit_price) + '</td>'
@@ -853,7 +900,7 @@ function renderProjects(){
       + '<td class="num">' + (r._remain > 0
           ? '<b style="color:#D64545">' + money(r._remain) + '</b>'
           : '<span class="chip green">Đã thu đủ</span>') + '</td>'
-      + '<td class="mid">' + vn(r.due_date) + lateChip(r._late, r._remain) + '</td>'
+      + '<td class="mid">' + vn(r._due || r.due_date) + lateChip(r._late, r._remain) + '</td>'
       + '<td>' + esc(r.note) + '</td></tr>';
   }).join('') : '<tr><td colspan="13" class="empty">Chưa có công trình nào. Bấm “+ Thêm công trình”.</td></tr>';
   if (SEL.tblProjects) pick('tblProjects', SEL.tblProjects);
@@ -1263,7 +1310,7 @@ function renderDebt(){
     return '<tr class="' + cls + '" data-id="' + r.id + '"'
       + ' onclick="pick(\'tblDebt\',' + r.id + ',event)" ondblclick="openProject(' + r.id + ')">'
       + '<td class="stt">' + (i+1) + '</td>'
-      + '<td><b>' + esc(r.name) + '</b></td>'
+      + '<td><b>' + esc(r.name) + '</b>' + (r.afterPaid ? ' <span class="chip violet">PS sau thanh toán</span><br><span class="hint" style="margin:0">Phát sinh: ' + esc(r.arisingText) + '</span>' : '') + '</td>'
       + '<td class="mid">' + esc(r.partner) + '</td>'
       + '<td class="mid">' + (vn(r.due_date) || '—') + '</td>'
       + '<td class="num">' + (r.late === null ? '—'
@@ -1655,13 +1702,17 @@ function wkAddArising(){
   var content = document.getElementById('wk_arText').value.trim();
   var amount = docSo(document.getElementById('wk_arAmt').value);
   if (!content) return toast('Hãy ghi nội dung phát sinh.', 'err');
+  var before = isAdmin() ? metricsMap()[String(PD.id)] : null;
+  var wasPaid = !!before && before.amount > 0 && before.remain <= 0 && amount > 0;
   call('apiAddArising', [{ project_id: PD.id, content: content, amount: amount }]).then(function(){
     document.getElementById('wk_arText').value = '';
     document.getElementById('wk_arAmt').value = '';
     return reloadAll();
   }).then(function(){
     wkRenderArisings();
-    toast(isAdmin() ? 'Đã thêm phát sinh (đã duyệt).' : 'Đã gửi phát sinh, chờ quản lý duyệt.', 'ok');
+    toast(wasPaid ? 'Công trình đã thu đủ trước đó — khoản phát sinh ' + money(amount) + ' đã vào Công nợ, hạn thu '
+                    + vn(addDays(TODAY, dueDays())) + '.'
+          : (isAdmin() ? 'Đã thêm phát sinh (đã duyệt).' : 'Đã gửi phát sinh, chờ quản lý duyệt.'), 'ok');
   }).catch(fail);
 }
 
@@ -1769,11 +1820,28 @@ function reviewDlg(aid, nested){
   function go2(decision){
     var amt = docSo(document.getElementById('rv_amt').value);
     var note = document.getElementById('rv_note').value;
+    // Công trình đã thu đủ trước khi duyệt? -> báo rõ khoản này vào lại Công nợ
+    var before = metricsMap()[String(a.project_id)];
+    var wasPaid = !!before && before.amount > 0 && before.remain <= 0 && a.status !== 'approved';
     call('apiReviewArising', [aid, decision, amt, note]).then(function(){
       closeDlg();
       return reloadAll();
     }).then(function(){
       if (nested) wkRenderArisings();
+      if (decision === 'approved' && wasPaid && amt > 0){
+        openDlg({
+          nested: !!nested,
+          title: 'Phát sinh sau thanh toán',
+          body: '<p style="margin-top:0"><b>' + esc(projectNameOf(a.project_id)) + '</b> đã thu đủ trước đó.</p>'
+              + '<p>Khoản phát sinh <b>' + money(amt) + '</b> (' + esc(a.content) + ') đã được đưa vào <b>Công nợ</b>, '
+              + 'hạn thu <b>' + vn(addDays(TODAY, dueDays())) + '</b> (ngày duyệt + ' + dueDays() + ' ngày).</p>'
+              + '<p class="hint">Thu tiền: trang Công nợ › chọn công trình › “Đã thanh toán hết”, '
+              + 'hoặc mở công trình › “Thu nốt phần còn lại”.</p>',
+          buttons: [{ label: 'Đóng', act: closeDlg },
+                    { label: 'Xem Công nợ', cls: 'primary', act: function(){ closeDlg(); if (nested) closeDlg(); go('debt'); renderDebt(); } }],
+        });
+        return;
+      }
       toast({ approved: 'Đã duyệt ' + money(amt) + '.', rejected: 'Đã từ chối phát sinh.',
               pending: 'Đã đưa về chờ duyệt.' }[decision], 'ok');
     }).catch(fail);
