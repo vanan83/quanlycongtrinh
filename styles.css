@@ -677,3 +677,11 @@ tfoot td + td{border-left:1px solid #E1E8F1}
   box-shadow:0 3px 10px rgba(194,48,59,.25)}
 .btn.danger.solid:hover{background:#B4232F;border-color:#B4232F;color:#fff}
 .tsday.blank{background:repeating-linear-gradient(135deg,#F1F5FB 0 8px,#E8EEF7 8px 16px);border:1px dashed #D3E0F1;border-radius:10px}
+
+/* Bảng lương: cột Tiền chuyển (nhập trực tiếp) và Gửi lại */
+#tblPayroll td.xfer{background:#FFFBEA}
+#tblPayroll thead th.xfer{background:linear-gradient(180deg,#F5A524,#E08A0C)}
+.xferin{width:130px;text-align:right;font-weight:700;padding:6px 8px;border:1px solid #F0D58A;background:#fff;border-radius:7px}
+.xferin:focus{border-color:#E08A0C;box-shadow:0 0 0 3px rgba(245,165,36,.2)}
+.back-pos{color:#7042D8}
+.back-neg{color:#C2303B}

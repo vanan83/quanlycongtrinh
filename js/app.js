@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.15-26';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.15-27';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -2100,7 +2100,31 @@ function loadPayroll(){
 
 function prRow(r){
   var ot = num(r.ot_count) * num(r.ot_rate), off = num(r.off_count) * num(r.off_rate);
-  return { ot: ot, off: off, total: Math.round(num(r.base_salary) + ot - off) };
+  var total = Math.round(num(r.base_salary) + ot - off);
+  var xf = num(r.transfer);
+  return { ot: ot, off: off, total: total, xfer: xf, back: xf ? xf - total : 0 };
+}
+
+/** Ô "Gửi lại" = Tiền chuyển − Thực nhận (âm = chuyển còn thiếu). */
+function prBackCell(c){
+  if (!c.xfer) return '—';
+  if (!c.back) return '<span class="chip green">Đủ</span>';
+  return c.back > 0 ? '<b class="back-pos">' + moneyPlain(c.back) + '</b>'
+                    : '<b class="back-neg" title="Chuyển còn thiếu">−' + moneyPlain(-c.back) + '</b>';
+}
+
+/** Gõ "Tiền chuyển" rồi Enter / rời ô: lưu ngay. */
+function prSaveXfer(uid, el){
+  var r = PR.data.rows.filter(function(x){ return String(x.uid) === String(uid); })[0];
+  if (!r) return;
+  var v = docSo(el.value);
+  if (num(v) === num(r.transfer)) { el.value = num(v) ? moneyPlain(v) : ''; return; }
+  el.disabled = true;
+  call('apiSavePayTransfer', [PR.month, uid, v]).then(function(){
+    r.transfer = num(v) || '';
+    renderPayroll();
+    toast(num(v) ? 'Đã lưu tiền chuyển cho ' + r.name + '.' : 'Đã xóa tiền chuyển của ' + r.name + '.', 'ok');
+  }).catch(function(e){ el.disabled = false; fail(e); });
 }
 
 function renderPayroll(){
@@ -2112,11 +2136,11 @@ function renderPayroll(){
   var btn = document.getElementById('prLockBtn');
   btn.textContent = d.locked ? '🔓 Mở chốt' : '🔒 Chốt lương tháng';
   btn.className = 'btn ' + (d.locked ? '' : 'primary');
-  var T = { base: 0, otn: 0, ot: 0, offn: 0, off: 0, total: 0 };
+  var T = { base: 0, otn: 0, ot: 0, offn: 0, off: 0, total: 0, xfer: 0, back: 0 };
   document.querySelector('#tblPayroll tbody').innerHTML = d.rows.length ? d.rows.map(function(r, i){
     var c = prRow(r);
     T.base += num(r.base_salary); T.otn += num(r.ot_count); T.ot += c.ot;
-    T.offn += num(r.off_count); T.off += c.off; T.total += c.total;
+    T.offn += num(r.off_count); T.off += c.off; T.total += c.total; T.xfer += c.xfer; T.back += c.back;
     return '<tr><td class="stt">' + (i + 1) + '</td><td><b>' + esc(r.name) + '</b></td>'
       + '<td class="num">' + moneyPlain(r.base_salary) + '</td>'
       + '<td class="num">' + (num(r.ot_count) || '—') + '</td>'
@@ -2126,12 +2150,18 @@ function renderPayroll(){
       + '<td class="num">' + (num(r.off_rate) ? moneyPlain(r.off_rate) : '—') + '</td>'
       + '<td class="num" style="color:#C2303B">' + (c.off ? '−' + moneyPlain(c.off) : '—') + '</td>'
       + '<td class="num"><b style="font-size:14px">' + money(c.total) + '</b></td>'
+      + '<td class="num xfer"><input type="text" inputmode="decimal" class="xferin" placeholder="Nhập…" value="'
+      + (c.xfer ? moneyPlain(c.xfer) : '') + '" onchange="prSaveXfer(' + r.uid + ', this)"'
+      + ' onkeydown="if(event.key===\'Enter\')this.blur()"></td>'
+      + '<td class="num">' + prBackCell(c) + '</td>'
       + '<td class="mid">' + (d.locked ? '' : '<button class="btn sm" onclick="salaryDlg(' + r.uid + ')">Mức lương</button>') + '</td></tr>';
-  }).join('') : '<tr><td colspan="11" class="empty">Chưa có tài khoản nhân viên. Tạo ở Thiết lập › Tài khoản nhân viên.</td></tr>';
+  }).join('') : '<tr><td colspan="13" class="empty">Chưa có tài khoản nhân viên. Tạo ở Thiết lập › Tài khoản nhân viên.</td></tr>';
   document.querySelector('#tblPayroll tfoot').innerHTML = d.rows.length
     ? '<tr><td></td><td><b>TỔNG CỘNG</b></td><td class="num">' + moneyPlain(T.base) + '</td><td class="num">' + T.otn + '</td><td></td>'
       + '<td class="num">' + moneyPlain(T.ot) + '</td><td class="num">' + T.offn + '</td><td></td>'
-      + '<td class="num">' + moneyPlain(T.off) + '</td><td class="num"><b>' + money(T.total) + '</b></td><td></td></tr>' : '';
+      + '<td class="num">' + moneyPlain(T.off) + '</td><td class="num"><b>' + money(T.total) + '</b></td>'
+      + '<td class="num">' + (T.xfer ? moneyPlain(T.xfer) : '') + '</td>'
+      + '<td class="num">' + (T.xfer ? (T.back < 0 ? '−' : '') + moneyPlain(Math.abs(T.back)) : '') + '</td><td></td></tr>' : '';
 }
 
 function salaryDlg(uid){
@@ -2181,11 +2211,11 @@ function prCopy(){
   var d = PR.data;
   if (!d || !d.rows.length) return toast('Chưa có dữ liệu.', 'err');
   var head = ['STT', 'Nhân viên', 'Lương cơ bản', 'Tăng ca (buổi)', 'Mức TC/buổi', 'Tiền tăng ca',
-              'OFF (buổi)', 'Mức trừ/buổi', 'Trừ OFF', 'Thực nhận'];
+              'OFF (buổi)', 'Mức trừ/buổi', 'Trừ OFF', 'Thực nhận', 'Tiền chuyển', 'Gửi lại'];
   var lines = [monthLabel(PR.month) + (d.locked ? ' (đã chốt)' : ''), head.join('\t')].concat(d.rows.map(function(r, i){
     var c = prRow(r);
     return [i + 1, r.name, num(r.base_salary), num(r.ot_count), num(r.ot_rate), c.ot,
-            num(r.off_count), num(r.off_rate), c.off, c.total].join('\t');
+            num(r.off_count), num(r.off_rate), c.off, c.total, c.xfer || '', c.xfer ? c.back : ''].join('\t');
   }));
   copyText(lines.join('\n'), 'Đã sao chép bảng lương — dán vào Excel bằng Ctrl+V.');
 }
