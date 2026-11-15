@@ -109,7 +109,7 @@
       </div>
 
       <div class="panel" style="margin-top:14px">
-        <h3>Cảnh báo thu tiền</h3>
+        <h3>Công trình còn nợ</h3>
         <ul class="alerts" id="alertList"></ul>
       </div>
     </section>
@@ -250,7 +250,6 @@
             <th data-k="_amount" class="num">Thành tiền</th>
             <th data-k="_advanced" class="num">Đã tạm ứng</th>
             <th data-k="_remain" class="num">Còn lại</th>
-            <th data-k="due_date" class="mid">Hạn thu tiền</th>
             <th data-k="note">Ghi chú</th></tr></thead>
           <tbody></tbody>
         </table>
@@ -260,7 +259,7 @@
     <!-- ------------------------------------------------------- CÔNG NỢ -->
     <section class="page" id="page-debt">
       <div class="phead">
-        <div><h1>Công nợ</h1><p>Các công trình còn phải thu hiện có, phân theo tuổi nợ</p></div>
+        <div><h1>Công nợ</h1><p>Công trình chưa thu đủ tiền — có phát sinh chưa thu thì xếp lên đầu</p></div>
       </div>
       <div class="toolbar">
         <label style="font-weight:600">🔍 Đối tác:</label>
@@ -275,8 +274,8 @@
         <table id="tblDebt">
           <thead><tr><th class="stt">#</th><th data-k="name">Công trình</th>
             <th data-k="partner" class="mid">Đối tác</th>
-            <th data-k="due_date" class="mid">Hạn thu tiền</th>
-            <th data-k="late" class="num">Số ngày quá hạn</th>
+            <th data-k="amount" class="num">Thành tiền</th>
+            <th data-k="advanced" class="num">Đã thu</th>
             <th data-k="remain" class="num">Còn phải thu</th></tr></thead>
           <tbody></tbody>
         </table>
@@ -365,10 +364,6 @@
           <p class="hint" id="st_lastSync"></p>
 
           <h3>Tùy chọn</h3>
-          <label class="fld"><span>Số ngày cảnh báo trước hạn thu tiền</span>
-            <input type="number" id="st_warn" min="0" max="365"></label>
-          <label class="fld"><span>Hạn thu tiền mặc định khi thêm công trình (ngày)</span>
-            <input type="number" id="st_due" min="0" max="365"></label>
           <label class="fld"><span>Tên viết tắt đơn vị (hiện trên file Excel xuất ra)</span>
             <input type="text" id="st_org"></label>
           <button class="btn primary" onclick="saveOptions()">Lưu tùy chọn</button>

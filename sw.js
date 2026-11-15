@@ -1,6 +1,6 @@
 // sw.js — cho app mở ngay (lấy từ bộ nhớ đệm) rồi hỏi máy chủ bản mới ở nền.
 // Khi CACHE đổi tên (bản mới), service worker mới cài lại toàn bộ file, trang tự tải lại một lần.
-const CACHE = 'qlct-2026.11.15-11';   // đặt trùng VERSION trong js/app.js
+const CACHE = 'qlct-2026.11.15-12';   // đặt trùng VERSION trong js/app.js
 const SHELL = ['./', 'index.html', 'styles.css', 'manifest.webmanifest', 'icon.svg',
   'js/app.js', 'js/config.js'];
 

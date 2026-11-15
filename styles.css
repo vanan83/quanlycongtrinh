@@ -402,3 +402,12 @@ label.fld > span,.dlg label.fld > span{
   font-size:12.5px;letter-spacing:.7px;padding:11px 14px}
 .dlg .sect > h4::before{background:var(--gold);height:15px}
 .chip.violet{background:#EDE4FF;color:#5B2DB3}
+
+/* ============================================================ NỢ ĐƠN GIẢN: chưa thu đủ = nợ; phát sinh chưa thu = tím */
+.card.violet::before{background:#7C4DDB} .card.violet .v{color:#6234C2}
+tbody tr.ps{background:#F6F1FF !important}
+tbody tr.ps:hover{background:#EEE5FF !important}
+.alerts li.ps{background:#F6F1FF;border-left:3px solid #7C4DDB}
+.alerts li.more{background:#EEF3FA;color:var(--blue);font-weight:600;text-align:center}
+#agingCards{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+#agingCards .card .t{min-height:0}

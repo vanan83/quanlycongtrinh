@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.15-11';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.15-12';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -73,13 +73,6 @@ function vn(iso){
   return s.slice(8,10) + '/' + s.slice(5,7) + '/' + s.slice(0,4);
 }
 
-function daysLate(iso){
-  if (!iso) return null;
-  var s = String(iso).slice(0,10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
-  return Math.round((new Date(TODAY + 'T00:00:00') - new Date(s + 'T00:00:00')) / 86400000);
-}
-
 function addDays(iso, n){
   var d = new Date((iso || TODAY) + 'T00:00:00');
   d.setDate(d.getDate() + n);
@@ -93,8 +86,6 @@ function esc(s){
     .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
-function warnDays(){ return num(DB.settings.warn_days) || 7; }
-function dueDays(){ var d = num(DB.settings.due_days); return d || 30; }
 
 /* ==================================================== CẦU NỐI SERVER */
 
@@ -336,47 +327,25 @@ function metricsMap(dfrom, dto){
   return m;
 }
 
+/** Phát sinh đã duyệt của một công trình (cũ trước). */
+function approvedArisingsOf(projectId){
+  return (DB.arisings || []).filter(function(a){
+    return a.status === 'approved' && String(a.project_id) === String(projectId);
+  }).sort(function(a, b){ return String(a.reviewed_at).localeCompare(String(b.reviewed_at)); });
+}
+
 /**
- * Các khoản phải thu của một công trình, theo thứ tự thời gian:
- *   1. Tiền gốc (DT × giá × hệ số + xin phép + phát sinh QL nhập tay) — hạn = Hạn thu tiền của công trình
- *   2. Từng phát sinh đã duyệt — hạn = ngày duyệt + số ngày mặc định (Thiết lập)
- * Tiền đã thu trả cho khoản cũ trước. Trả về khoản đầu tiên còn nợ (để tính số ngày quá hạn),
- * cùng danh sách phát sinh còn nợ. Nhờ vậy công trình đã thu đủ rồi mới có phát sinh thì tuổi nợ
- * tính từ ngày duyệt phát sinh, không bị báo "quá hạn" theo hạn cũ.
+ * Phát sinh chưa thu của công trình. Tiền đã thu coi như trả tiền thiết kế gốc trước,
+ * nên phần phát sinh chưa thu = min(còn phải thu, tổng phát sinh đã duyệt).
  */
-function oldestUnpaid(p, paid){
-  var items = [{ kind: 'base', due: p.due_date || '',
-    amount: num(p.area) * num(p.unit_price) * num(p.factor) + num(p.permit_fee) + num(p.arising_fee) }];
-  (DB.arisings || []).filter(function(a){
-    return a.status === 'approved' && String(a.project_id) === String(p.id);
-  }).sort(function(a, b){ return String(a.reviewed_at).localeCompare(String(b.reviewed_at)); })
-    .forEach(function(a){
-      var d = String(a.reviewed_at || a.created_at || '').slice(0, 10);
-      items.push({ kind: 'arising', content: a.content, amount: num(a.approved_amount),
-                   due: addDays(/^\d{4}-\d{2}-\d{2}$/.test(d) ? d : TODAY, dueDays()) });
-    });
-  var left = num(paid);
-  for (var i = 0; i < items.length; i++){
-    if (left + 0.5 >= items[i].amount){ left -= items[i].amount; continue; }
-    var rest = items.slice(i).filter(function(x){ return x.kind === 'arising'; });
-    return { due: items[i].due, kind: items[i].kind, arisings: rest };
-  }
-  return null;
+function unpaidArising(p, remain){
+  var list = approvedArisingsOf(p.id);
+  var total = list.reduce(function(s, a){ return s + num(a.approved_amount); }, 0);
+  return { amount: Math.max(0, Math.min(num(remain), total)),
+           text: list.map(function(a){ return a.content; }).join('; ') };
 }
 
-function paidOf(projectId){
-  return DB.advances.reduce(function(s, a){
-    return String(a.project_id) === String(projectId) ? s + num(a.amount) : s;
-  }, 0);
-}
-
-/** Hạn thu đang áp dụng: hạn của khoản cũ nhất còn nợ (không còn nợ thì dùng hạn công trình). */
-function effectiveDue(p, paid){
-  var o = oldestUnpaid(p, paid === undefined ? paidOf(p.id) : paid);
-  return o ? o.due : p.due_date;
-}
-
-/** Công trình còn phải thu (remain>0), kèm số ngày quá hạn. late=null là chưa đặt hạn. */
+/** Công trình còn nợ = chưa thu đủ (còn phải thu > 0). Có phát sinh chưa thu thì xếp lên đầu. */
 function debtRows(partnerId){
   var m = metricsMap();
   var rows = [];
@@ -384,52 +353,23 @@ function debtRows(partnerId){
     if (partnerId && String(p.partner_id) !== String(partnerId)) return;
     var met = m[String(p.id)];
     if (!met || met.remain <= 0) return;
-    var o = oldestUnpaid(p, met.advanced);
-    var due = o ? o.due : p.due_date;
+    var ua = unpaidArising(p, met.remain);
     rows.push({ id: p.id, name: p.name, partner: partnerName(p.partner_id),
-                due_date: due, late: daysLate(due), remain: met.remain,
-                afterPaid: !!(o && o.kind === 'arising'),
-                arisingText: o ? o.arisings.map(function(x){ return x.content; }).join('; ') : '' });
+                amount: met.amount, advanced: met.advanced, remain: met.remain,
+                ps: ua.amount, psText: ua.amount > 0 ? ua.text : '' });
   });
-  rows.sort(function(a,b){
-    if ((a.late === null) !== (b.late === null)) return a.late === null ? 1 : -1;
-    return (b.late || 0) - (a.late || 0);
+  rows.sort(function(a, b){
+    if ((a.ps > 0) !== (b.ps > 0)) return a.ps > 0 ? -1 : 1;
+    return b.remain - a.remain;
   });
   return rows;
 }
 
-var AGING_KEYS = ['Chưa có hạn / chưa đến hạn','0-30 ngày','31-60 ngày','61-90 ngày','Trên 90 ngày'];
-
-function aging(partnerId){
-  var buckets = {};
-  AGING_KEYS.forEach(function(k){ buckets[k] = 0; });
-  var rows = debtRows(partnerId);
-  rows.forEach(function(r){
-    var late = r.late, key;
-    if (late === null || late <= 0) key = AGING_KEYS[0];
-    else if (late <= 30) key = AGING_KEYS[1];
-    else if (late <= 60) key = AGING_KEYS[2];
-    else if (late <= 90) key = AGING_KEYS[3];
-    else key = AGING_KEYS[4];
-    buckets[key] += r.remain;
-  });
-  return { buckets: buckets, rows: rows };
-}
-
-function alerts(){
-  var wd = warnDays(), out = [];
-  debtRows().forEach(function(r){
-    if (r.late === null) return;
-    if (r.late > 0){
-      out.push({ level: 2, id: r.id, remain: r.remain,
-                 text: r.name + ': quá hạn thu tiền ' + r.late + ' ngày' });
-    } else if (r.late >= -wd){
-      out.push({ level: 1, id: r.id, remain: r.remain,
-                 text: r.name + ': sắp đến hạn thu tiền (' + Math.abs(r.late) + ' ngày nữa)' });
-    }
-  });
-  out.sort(function(a,b){ return b.level - a.level; });
-  return out;
+/** Chip "PS chưa thu: 450.000 đ" + nội dung phát sinh (dùng ở Công nợ, Công trình, Tổng quan). */
+function psChip(ps, text, withText){
+  if (!(ps > 0)) return '';
+  return ' <span class="chip violet" title="' + esc(text) + '">PS chưa thu: ' + moneyPlain(ps) + ' đ</span>'
+    + (withText && text ? '<br><span class="hint" style="margin:0">Phát sinh: ' + esc(text) + '</span>' : '');
 }
 
 function monthlyAdvances(year){
@@ -466,15 +406,12 @@ function partnerDebts(dfrom, dto){
     var met = m[String(p.id)];
     if (!met || met.remain <= 0) return;
     var k = String(p.partner_id || '');
-    if (!agg[k]) agg[k] = { id: p.partner_id || null, remain: 0, count: 0, late: null, soon: null,
+    if (!agg[k]) agg[k] = { id: p.partner_id || null, remain: 0, count: 0, ps: 0,
                             name: partnerName(p.partner_id) || '(Chưa có đối tác)' };
     var d = agg[k];
     d.remain += met.remain;
     d.count += 1;
-    var late = daysLate(effectiveDue(p, met.advanced));
-    if (late === null) return;
-    if (late > 0) d.late = d.late === null ? late : Math.max(d.late, late);
-    else { var con = -late; d.soon = d.soon === null ? con : Math.min(d.soon, con); }
+    if (unpaidArising(p, met.remain).amount > 0) d.ps += 1;
   });
   return Object.keys(agg).map(function(k){ return agg[k]; })
     .sort(function(a,b){ return b.remain - a.remain; });
@@ -596,11 +533,8 @@ function renderDashboard(){
   var debts = partnerDebts(dfrom, dto);
   document.getElementById('debtDonut').innerHTML =
     donutSvg(debts.map(function(d){ return d.remain; }), 150);
-  var wd = warnDays();
   document.getElementById('debtLegend').innerHTML = debts.length ? debts.map(function(d, i){
-    var phu = '';
-    if (d.late) phu = '🔴 quá hạn ' + d.late + ' ngày';
-    else if (d.soon !== null && d.soon <= wd) phu = '🟡 còn ' + d.soon + ' ngày tới hạn';
+    var phu = d.ps ? d.ps + ' có phát sinh chưa thu' : '';
     return '<li class="click" onclick="openDebtFor(' + (d.id || 'null') + ')">'
       + '<span class="dot" style="background:' + DONUT_COLORS[i % DONUT_COLORS.length] + '"></span>'
       + '<span class="nm">' + esc(d.name) + ' — <b>' + money(d.remain) + '</b>'
@@ -616,12 +550,15 @@ function renderDashboard(){
       + '"></span><span class="nm">' + esc(t.name) + ' — <b>' + money(t.value) + '</b></span></li>';
   }).join('') : '<li class="sub">Chưa có dữ liệu.</li>';
 
-  // Cảnh báo
-  var al = alerts();
-  document.getElementById('alertList').innerHTML = al.length ? al.map(function(a){
-    return '<li class="lv' + a.level + '" onclick="openProject(' + a.id + ')">'
-      + esc(a.text) + ' — <b>' + money(a.remain) + '</b></li>';
-  }).join('') : '<li style="color:#6B7A8D;padding:6px">Không có công trình nào quá hạn hay sắp đến hạn.</li>';
+  // Công trình còn nợ (có phát sinh chưa thu lên đầu)
+  var owe = debtRows();
+  document.getElementById('alertList').innerHTML = owe.length ? owe.slice(0, 12).map(function(r){
+    return '<li class="' + (r.ps > 0 ? 'ps' : 'lv1') + '" onclick="openProject(' + r.id + ')">'
+      + '<b>' + esc(r.name) + '</b>' + (r.partner ? ' · ' + esc(r.partner) : '')
+      + ' — còn nợ <b>' + money(r.remain) + '</b>' + psChip(r.ps, r.psText, true) + '</li>';
+  }).join('') + (owe.length > 12 ? '<li class="more" onclick="go(\'debt\');renderDebt()">Xem tất cả '
+      + owe.length + ' công trình còn nợ ›</li>' : '')
+    : '<li style="color:#6B7A8D;padding:6px">Tất cả công trình đã thu đủ. 🎉</li>';
 }
 
 function openDebtFor(partnerId){
@@ -859,9 +796,7 @@ function projectRows(){
       partner_name: partnerName(p.partner_id),
       _arising: num(p.arising_fee) + approvedArising(p.id),
       _amount: met.amount, _advanced: met.advanced, _remain: met.remain,
-      _due: met.remain > 0 ? effectiveDue(p, met.advanced) : p.due_date,
-      _late: daysLate(effectiveDue(p, met.advanced)),
-      _afterPaid: (function(){ var o = met.remain > 0 ? oldestUnpaid(p, met.advanced) : null; return !!(o && o.kind === 'arising'); })(),
+      _ps: met.remain > 0 ? unpaidArising(p, met.remain).amount : 0,
     });
   }).sort(function(a,b){
     var ca = a.create_date || '', cb = b.create_date || '';
@@ -881,14 +816,12 @@ function renderProjects(){
 
   var tb = document.querySelector('#tblProjects tbody');
   tb.innerHTML = rows.length ? rows.map(function(r, i){
-    var cls = '';
-    if (r._remain > 0 && r._late !== null && r._late > 0) cls = 'bad';
-    else if (r._remain > 0) cls = 'warn';
+    var cls = r._remain > 0 ? 'warn' : '';
     return '<tr class="' + cls + '" data-id="' + r.id + '"'
       + ' onclick="pick(\'tblProjects\',' + r.id + ',event)"'
       + ' ondblclick="openProject(' + r.id + ')">'
       + '<td class="stt">' + (i+1) + '</td>'
-      + '<td><b>' + esc(r.name) + '</b>' + (r._afterPaid ? ' <span class="chip violet" title="Đã thu đủ tiền gốc, còn phát sinh duyệt sau">PS sau thanh toán</span>' : '') + '</td>'
+      + '<td><b>' + esc(r.name) + '</b>' + psChip(r._ps, '', false) + '</td>'
       + '<td class="mid">' + esc(r.partner_name) + '</td>'
       + '<td class="mid">' + dienTichVn(r.area) + '</td>'
       + '<td class="mid">' + moneyPlain(r.unit_price) + '</td>'
@@ -900,17 +833,9 @@ function renderProjects(){
       + '<td class="num">' + (r._remain > 0
           ? '<b style="color:#D64545">' + money(r._remain) + '</b>'
           : '<span class="chip green">Đã thu đủ</span>') + '</td>'
-      + '<td class="mid">' + vn(r._due || r.due_date) + lateChip(r._late, r._remain) + '</td>'
       + '<td>' + esc(r.note) + '</td></tr>';
-  }).join('') : '<tr><td colspan="13" class="empty">Chưa có công trình nào. Bấm “+ Thêm công trình”.</td></tr>';
+  }).join('') : '<tr><td colspan="12" class="empty">Chưa có công trình nào. Bấm “+ Thêm công trình”.</td></tr>';
   if (SEL.tblProjects) pick('tblProjects', SEL.tblProjects);
-}
-
-function lateChip(late, remain){
-  if (late === null || remain <= 0) return '';
-  if (late > 0) return ' <span class="chip red">trễ ' + late + 'n</span>';
-  if (-late <= warnDays()) return ' <span class="chip amber">' + (-late) + 'n</span>';
-  return '';
 }
 
 function addProject(){ projectDlg(null); }
@@ -980,7 +905,7 @@ var PD = null;   // trạng thái công trình đang mở trong hộp thoại
 
 function projectDlg(p){
   var isNew = !p;
-  p = p || { create_date: TODAY, due_date: addDays(TODAY, dueDays()), factor: 1 };
+  p = p || { create_date: TODAY, factor: 1 };
   PD = {
     id: p.id || null,
     floors: p.id ? floorsOf(p.id).map(function(f){
@@ -1021,15 +946,8 @@ function projectDlg(p){
       + '</div>'
       + '<div class="grid2">'
       + '<label class="fld"><span>Ngày lập</span>'
-      + '<input type="date" id="pj_create" value="' + (p.create_date || '') + '" onchange="pjDueFromCreate()"></label>'
-      + '<label class="fld"><span>Hạn thu tiền</span>'
-      + '<input type="date" id="pj_due" value="' + (p.due_date || '') + '"></label>'
-      + '</div>'
-      + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:-4px 0 12px">'
-      + [15,30,45,60,90].map(function(n){
-          return '<button class="btn sm" onclick="pjSetDue(' + n + ')">+' + n + ' ngày</button>';
-        }).join('')
-      + '</div>'
+      + '<input type="date" id="pj_create" value="' + (p.create_date || '') + '"></label>'
+      + '<div></div></div>'
 
       + '<div class="sect"><h4>Tính tiền</h4>'
       + '<div class="grid3">'
@@ -1122,16 +1040,6 @@ function pjPartnerChanged(){
     document.getElementById('pj_price').value = moneyPlain(price);
     pjRecalc();
   }
-}
-
-function pjSetDue(n){
-  var c = document.getElementById('pj_create').value || TODAY;
-  document.getElementById('pj_due').value = addDays(c, n);
-}
-
-function pjDueFromCreate(){
-  var due = document.getElementById('pj_due');
-  if (!due.value) pjSetDue(dueDays());
 }
 
 function pjRenderAdv(){
@@ -1267,7 +1175,6 @@ function pjSave(){
     name: document.getElementById('pj_name').value.trim(),
     partner_id: document.getElementById('pj_partner').value || null,
     create_date: document.getElementById('pj_create').value,
-    due_date: document.getElementById('pj_due').value,
     area: v.area, unit_price: v.unit_price, factor: v.factor,
     permit_fee: v.permit_fee, arising_fee: v.arising_fee,
     note: document.getElementById('pj_note').value,
@@ -1296,26 +1203,26 @@ function renderDebtPartnerSelect(){
 
 function renderDebt(){
   var pid = document.getElementById('debtPartner').value || null;
-  var res = aging(pid);
+  var all = debtRows(pid);
+  var tot = all.reduce(function(t, r){ return t + r.remain; }, 0);
+  var psN = all.filter(function(r){ return r.ps > 0; }), psTot = psN.reduce(function(t, r){ return t + r.ps; }, 0);
+  document.getElementById('agingCards').innerHTML =
+      '<div class="card red"><div class="t">Tổng còn phải thu</div><div class="v">' + money(tot) + '</div>'
+    + '<div class="s">' + all.length + ' công trình chưa thu đủ</div></div>'
+    + '<div class="card violet"><div class="t">Trong đó: phát sinh chưa thu</div><div class="v">' + money(psTot) + '</div>'
+    + '<div class="s">' + psN.length + ' công trình có phát sinh chưa thu</div></div>';
 
-  document.getElementById('agingCards').innerHTML = AGING_KEYS.map(function(k){
-    return '<div class="card ' + (k === 'Trên 90 ngày' ? 'red' : 'blue') + '">'
-      + '<div class="t">' + k + '</div><div class="v">' + money(res.buckets[k]) + '</div></div>';
-  }).join('');
-
-  var rows = applySort('tblDebt', res.rows);
+  var rows = applySort('tblDebt', all);
   var tb = document.querySelector('#tblDebt tbody');
   tb.innerHTML = rows.length ? rows.map(function(r, i){
-    var cls = r.late !== null && r.late > 0 ? 'bad' : (r.late === 0 ? 'warn' : '');
-    return '<tr class="' + cls + '" data-id="' + r.id + '"'
+    return '<tr class="' + (r.ps > 0 ? 'ps' : '') + '" data-id="' + r.id + '"'
       + ' onclick="pick(\'tblDebt\',' + r.id + ',event)" ondblclick="openProject(' + r.id + ')">'
       + '<td class="stt">' + (i+1) + '</td>'
-      + '<td><b>' + esc(r.name) + '</b>' + (r.afterPaid ? ' <span class="chip violet">PS sau thanh toán</span><br><span class="hint" style="margin:0">Phát sinh: ' + esc(r.arisingText) + '</span>' : '') + '</td>'
+      + '<td><b>' + esc(r.name) + '</b>' + psChip(r.ps, r.psText, true) + '</td>'
       + '<td class="mid">' + esc(r.partner) + '</td>'
-      + '<td class="mid">' + (vn(r.due_date) || '—') + '</td>'
-      + '<td class="num">' + (r.late === null ? '—'
-          : (r.late > 0 ? '<span class="chip red">' + r.late + '</span>' : r.late)) + '</td>'
-      + '<td class="num"><b>' + money(r.remain) + '</b></td></tr>';
+      + '<td class="num">' + money(r.amount) + '</td>'
+      + '<td class="num">' + money(r.advanced) + '</td>'
+      + '<td class="num"><b style="color:#C2303B">' + money(r.remain) + '</b></td></tr>';
   }).join('') : '<tr><td colspan="6" class="empty">Không còn công nợ nào. 🎉</td></tr>';
   markDebtSel();
 }
@@ -1710,8 +1617,7 @@ function wkAddArising(){
     return reloadAll();
   }).then(function(){
     wkRenderArisings();
-    toast(wasPaid ? 'Công trình đã thu đủ trước đó — khoản phát sinh ' + money(amount) + ' đã vào Công nợ, hạn thu '
-                    + vn(addDays(TODAY, dueDays())) + '.'
+    toast(wasPaid ? 'Công trình đã thu đủ trước đó — khoản phát sinh ' + money(amount) + ' đã vào Công nợ (PS chưa thu).'
           : (isAdmin() ? 'Đã thêm phát sinh (đã duyệt).' : 'Đã gửi phát sinh, chờ quản lý duyệt.'), 'ok');
   }).catch(fail);
 }
@@ -1833,8 +1739,8 @@ function reviewDlg(aid, nested){
           nested: !!nested,
           title: 'Phát sinh sau thanh toán',
           body: '<p style="margin-top:0"><b>' + esc(projectNameOf(a.project_id)) + '</b> đã thu đủ trước đó.</p>'
-              + '<p>Khoản phát sinh <b>' + money(amt) + '</b> (' + esc(a.content) + ') đã được đưa vào <b>Công nợ</b>, '
-              + 'hạn thu <b>' + vn(addDays(TODAY, dueDays())) + '</b> (ngày duyệt + ' + dueDays() + ' ngày).</p>'
+              + '<p>Khoản phát sinh <b>' + money(amt) + '</b> (' + esc(a.content) + ') đã được đưa vào <b>Công nợ</b> '
+              + 'với nhãn <b>PS chưa thu</b>.</p>'
               + '<p class="hint">Thu tiền: trang Công nợ › chọn công trình › “Đã thanh toán hết”, '
               + 'hoặc mở công trình › “Thu nốt phần còn lại”.</p>',
           buttons: [{ label: 'Đóng', act: closeDlg },
@@ -1925,8 +1831,6 @@ function renderSettings(){
   document.getElementById('st_name').value = s.user_display_name || '';
   document.getElementById('st_role').value = s.user_role || '';
   document.getElementById('st_user').value = s.auth_username || '';
-  document.getElementById('st_warn').value = warnDays();
-  document.getElementById('st_due').value = dueDays();
   document.getElementById('st_org').value = s.export_org || '';
   document.getElementById('st_dataLink').href = DB.dataUrl || '#';
   document.getElementById('st_daily').textContent =
@@ -1944,8 +1848,6 @@ function saveAccount(){
 
 function saveOptions(){
   call('apiSaveSettings', [{
-    warn_days: document.getElementById('st_warn').value,
-    due_days: document.getElementById('st_due').value,
     export_org: document.getElementById('st_org').value,
   }]).then(function(){ return reloadAll(); })
     .then(function(){ toast('Đã lưu tùy chọn.', 'ok'); }).catch(fail);
