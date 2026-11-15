@@ -46,6 +46,10 @@
     <button class="navbtn active admin-only" data-page="dashboard"><i class="ic">📊</i><span class="lb">Tổng quan</span></button>
     <div class="navsec">Công việc</div>
     <div id="navWork" class="navgroup"></div>
+    <div class="navsec">Nhân sự</div>
+    <button class="navbtn" data-page="sheet" data-kind="off" onclick="openSheet('off')"><i class="ic">🕘</i><span class="lb">Chấm công</span></button>
+    <button class="navbtn" data-page="sheet" data-kind="ot" onclick="openSheet('ot')"><i class="ic">🌙</i><span class="lb">Tăng ca</span></button>
+    <button class="navbtn admin-only" data-page="payroll" data-kind="pay" onclick="openPayroll()"><i class="ic">💵</i><span class="lb">Bảng lương</span></button>
     <div class="navsec admin-only">Quản lý</div>
     <button class="navbtn admin-only" data-page="arisings"><i class="ic">🧾</i><span class="lb">Phát sinh</span><span class="navbadge" id="arBadge"></span></button>
     <button class="navbtn" data-page="area"><i class="ic">📐</i><span class="lb">Tính diện tích</span></button>
@@ -176,6 +180,64 @@
         </table>
       </div>
       <p class="hint">Bấm đúp một dòng để duyệt và sửa số tiền được duyệt.</p>
+    </section>
+
+    <!-- ------------------------------------------------------- CHẤM CÔNG / TĂNG CA (dùng chung) -->
+    <section class="page" id="page-sheet">
+      <div class="phead">
+        <div><h1 id="tsTitle">Chấm công</h1><p id="tsSub"></p></div>
+        <div class="grow"></div>
+        <div class="monthnav">
+          <button class="btn" onclick="tsMonth(-1)" title="Tháng trước">◀</button>
+          <b id="tsMonthLb"></b>
+          <button class="btn" onclick="tsMonth(1)" title="Tháng sau">▶</button>
+          <button class="btn sm" onclick="tsMonth(0)">Tháng này</button>
+        </div>
+      </div>
+      <div class="toolbar">
+        <label class="admin-only" style="font-weight:600">Nhân viên:</label>
+        <select id="tsUser" class="admin-only" style="width:auto;min-width:220px" onchange="tsPickUser(this.value)"></select>
+        <span id="tsWho" class="not-admin-only" style="font-weight:600"></span>
+        <div class="grow"></div>
+        <span id="tsLegend" class="ts-legend"></span>
+        <span id="tsLock"></span>
+      </div>
+      <div class="ts-wrap">
+        <div class="panel ts-cal"><div id="tsCal"></div></div>
+        <div class="panel ts-side"><h3 id="tsSumTitle">Tổng hợp tháng</h3><div id="tsSum"></div></div>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------------- BẢNG LƯƠNG (quản trị) -->
+    <section class="page" id="page-payroll">
+      <div class="phead">
+        <div><h1>Bảng lương</h1><p>Thực nhận = Lương cơ bản + Tiền tăng ca − Trừ OFF (số buổi × mức / buổi của từng người)</p></div>
+        <div class="grow"></div>
+        <div class="monthnav">
+          <button class="btn" onclick="prMonth(-1)" title="Tháng trước">◀</button>
+          <b id="prMonthLb"></b>
+          <button class="btn" onclick="prMonth(1)" title="Tháng sau">▶</button>
+          <button class="btn sm" onclick="prMonth(0)">Tháng này</button>
+        </div>
+      </div>
+      <div class="toolbar">
+        <span id="prStatus"></span>
+        <div class="grow"></div>
+        <button class="btn" onclick="prCopy()">📋 Sao chép bảng (dán vào Excel)</button>
+        <button class="btn primary" id="prLockBtn" onclick="prLock()">🔒 Chốt lương tháng</button>
+      </div>
+      <div class="tablewrap">
+        <table id="tblPayroll">
+          <thead><tr><th class="stt">#</th><th>Nhân viên</th><th class="num">Lương cơ bản</th>
+            <th class="num">Tăng ca (buổi)</th><th class="num">Mức TC / buổi</th><th class="num">Tiền tăng ca</th>
+            <th class="num">OFF (buổi)</th><th class="num">Mức trừ / buổi</th><th class="num">Trừ OFF</th>
+            <th class="num">Thực nhận</th><th class="mid"></th></tr></thead>
+          <tbody></tbody>
+          <tfoot></tfoot>
+        </table>
+      </div>
+      <p class="hint">Bấm “Mức lương” để đặt lương cơ bản, mức tăng ca và mức trừ OFF cho từng người.
+        Chốt lương thì số liệu tháng đó được giữ cố định và nhân viên không sửa chấm công tháng đó được nữa.</p>
     </section>
 
     <!-- ------------------------------------------------------- TÍNH DIỆN TÍCH -->

@@ -446,3 +446,41 @@ label.chk-box:has(input:checked){border-color:var(--blue);background:#EAF3FF}
 .ar-item{align-items:center}
 .ar-no{flex:0 0 auto;min-width:54px;text-align:center;font-size:11.5px;font-weight:800;color:#1554A6;
   background:#DDEBFF;border-radius:7px;padding:4px 8px}
+
+/* ============================================================ CHẤM CÔNG / TĂNG CA / BẢNG LƯƠNG */
+body.role-staff .not-admin-only{display:inline} body:not(.role-staff) .not-admin-only{display:none !important}
+.monthnav{display:flex;align-items:center;gap:8px}
+.monthnav b{min-width:120px;text-align:center;font-size:15px;color:var(--navy)}
+.ts-wrap{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:16px;align-items:start}
+.ts-legend{font-size:12.5px;color:var(--muted);display:inline-flex;align-items:center;gap:4px;margin-right:10px}
+.tsgrid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.tshead{text-align:center;font-size:12px;font-weight:700;color:#2A4A75;padding:6px 0;background:#EEF3FA;border-radius:7px}
+.tshead.sun{color:#C2303B;background:#FDEEEF}
+.tsday{border:1px solid #DFE7F1;border-radius:10px;padding:6px 6px 8px;background:#fff;min-height:78px}
+.tsday.blank{border:0;background:none}
+.tsday.sun{background:#FFF8F8}
+.tsday.today{border-color:var(--blue);box-shadow:0 0 0 2px rgba(23,103,216,.18)}
+.tsday.has{background:#FBFCFF}
+.tsday .dn{font-weight:800;font-size:13px;color:var(--navy);margin-bottom:6px}
+.tsday.sun .dn{color:#C2303B}
+.slots{display:flex;gap:4px;flex-wrap:wrap}
+.slot{flex:1 1 0;min-width:26px;height:28px;border-radius:7px;border:1px dashed #C3D1E3;background:#F6F9FD;
+  color:#8094AD;font-weight:800;font-size:12px;cursor:pointer;padding:0;transition:.12s}
+.slot:hover:not(:disabled){border-style:solid;border-color:#7FA2CF;color:var(--navy)}
+.slot:disabled{cursor:not-allowed;opacity:.7}
+.slot.off.on{background:linear-gradient(180deg,#F25B65,#D33F49);border:1px solid #C0313B;color:#fff}
+.slot.ot.on{background:linear-gradient(180deg,#2C8DFF,#1570EA);border:1px solid #125FC7;color:#fff}
+.slot.mini{display:inline-grid;place-items:center;width:20px;height:20px;min-width:0;flex:none;font-size:10.5px;border-radius:5px}
+.tssum{width:100%;font-size:13.5px}
+.tssum td{padding:8px 6px;border-bottom:1px solid #EDF1F6;cursor:pointer}
+.tssum tr:hover td{background:#F0F6FF}
+.tssum tr.sel td{background:#DDEBFF;font-weight:700}
+.tsbig{display:flex;align-items:baseline;gap:8px;padding:12px 4px}
+.tsbig b{font-size:34px;font-weight:800}
+.tsbig.off b{color:#D33F49} .tsbig.ot b{color:#1570EA}
+.tslist{margin:0;padding-left:18px;font-size:13px;line-height:1.8;max-height:340px;overflow:auto}
+#tblPayroll tfoot td{position:sticky;bottom:0;background:#FFF3D9;border-top:2px solid var(--gold);padding:11px 12px;font-weight:700;color:#5F3B00}
+@media (max-width:900px){ .ts-wrap{grid-template-columns:1fr} }
+@media (max-width:720px){ .tsday{min-height:64px;padding:4px} .slot{min-width:0;height:24px;font-size:11px} .tsgrid{gap:3px} }
+#tblPayroll th,#tblPayroll td{padding-left:9px;padding-right:9px}
+#tblPayroll tfoot td,#tblPayroll td:nth-child(2){white-space:nowrap}

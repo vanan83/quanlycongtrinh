@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.15-13';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.15-14';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -156,7 +156,7 @@ window.addEventListener('DOMContentLoaded', function(){
   else { showLogin(''); }
   document.getElementById('verLabel').textContent = 'v' + VERSION;
 
-  document.querySelectorAll('.navbtn[data-page]').forEach(function(b){
+  document.querySelectorAll('.navbtn[data-page]:not([data-kind])').forEach(function(b){
     b.addEventListener('click', function(){ go(b.dataset.page); });
   });
   // KHÔNG đóng hộp thoại khi bấm ra nền mờ: bôi đen chữ trong ô rồi thả chuột ra ngoài cũng
@@ -272,7 +272,8 @@ function renderAll(){
 function go(page){
   document.querySelectorAll('.navbtn').forEach(function(b){
     b.classList.toggle('active', b.dataset.page === page
-      && (page !== 'work' || b.dataset.cat === WK_CAT));
+      && (page !== 'work' || b.dataset.cat === WK_CAT)
+      && (page !== 'sheet' || b.dataset.kind === TS.kind));
   });
   document.querySelectorAll('.page').forEach(function(s){
     s.classList.toggle('on', s.id === 'page-' + page);
@@ -1826,6 +1827,243 @@ function reviewDlg(aid, nested){
               pending: 'Đã đưa về chờ duyệt.' }[decision], 'ok');
     }).catch(fail);
   }
+}
+
+/* ==================================================== CHẤM CÔNG / TĂNG CA
+   Lịch tháng, mỗi ngày có các ô buổi: OFF = Sáng / Chiều, Tăng ca = Sáng / Chiều / Tối.
+   Bấm ô để chấm / bỏ chấm. Nhân viên chấm cho mình; quản lý chọn nhân viên để chấm / sửa. */
+
+var TS = { kind: 'off', month: '', uid: null, data: null };
+var TS_SESS = { off: ['sang', 'chieu'], ot: ['sang', 'chieu', 'toi'] };
+var SESS_LB = { sang: 'Sáng', chieu: 'Chiều', toi: 'Tối' };
+var SESS_SHORT = { sang: 'S', chieu: 'C', toi: 'T' };
+var WD = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+
+function monthLabel(m){ return 'Tháng ' + Number(m.slice(5, 7)) + '/' + m.slice(0, 4); }
+function monthAdd(m, n){
+  var d = new Date(Number(m.slice(0, 4)), Number(m.slice(5, 7)) - 1 + n, 1);
+  return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2);
+}
+
+function openSheet(kind){
+  TS.kind = kind;
+  if (!TS.month) TS.month = TODAY.slice(0, 7);
+  go('sheet');
+  loadSheet();
+}
+
+function tsMonth(n){ TS.month = n ? monthAdd(TS.month, n) : TODAY.slice(0, 7); loadSheet(); }
+
+function loadSheet(){
+  document.getElementById('tsMonthLb').textContent = monthLabel(TS.month);
+  return call('apiTimesheetLoad', [TS.month]).then(function(d){
+    TS.data = d;
+    if (!isAdmin()) TS.uid = d.myUid;
+    else {
+      var ids = d.staff.map(function(u){ return String(u.id); });
+      if (TS.uid === null || ids.indexOf(String(TS.uid)) < 0) TS.uid = d.staff.length ? d.staff[0].id : null;
+    }
+    renderSheet();
+  }).catch(fail);
+}
+
+function tsPickUser(uid){ TS.uid = uid ? Number(uid) : null; renderSheet(); }
+
+function tsEntries(uid){
+  return (TS.data ? TS.data.entries : []).filter(function(r){
+    return r.kind === TS.kind && String(r.uid) === String(uid);
+  });
+}
+
+function renderSheet(){
+  var off = TS.kind === 'off', d = TS.data;
+  if (!d) return;
+  document.getElementById('tsTitle').textContent = off ? 'Chấm công' : 'Tăng ca';
+  document.getElementById('tsSub').textContent = off
+    ? 'Bấm ô Sáng / Chiều vào ngày nghỉ (OFF). Mỗi ô là một buổi, nghỉ cả ngày là 2 buổi.'
+    : 'Bấm ô Sáng / Chiều / Tối vào buổi đã tăng ca. Mỗi ô là một buổi.';
+  document.getElementById('tsSumTitle').textContent = isAdmin()
+    ? (off ? 'Số buổi OFF trong tháng' : 'Số buổi tăng ca trong tháng') : 'Tháng này của bạn';
+  document.getElementById('tsLegend').innerHTML = TS_SESS[TS.kind].map(function(s){
+    return '<b class="slot ' + (off ? 'off' : 'ot') + ' on mini">' + SESS_SHORT[s] + '</b> ' + SESS_LB[s];
+  }).join(' &nbsp; ');
+  document.getElementById('tsLock').innerHTML = d.locked
+    ? '<span class="chip red">🔒 Đã chốt lương — không sửa được</span>' : '';
+
+  // chọn nhân viên (quản lý)
+  if (isAdmin()){
+    var sel = document.getElementById('tsUser');
+    sel.innerHTML = d.staff.length ? d.staff.map(function(u){
+      return '<option value="' + u.id + '"' + (String(u.id) === String(TS.uid) ? ' selected' : '') + '>'
+        + esc(u.name) + (u.active ? '' : ' (đã khóa)') + '</option>';
+    }).join('') : '<option value="">— Chưa có tài khoản nhân viên —</option>';
+  } else {
+    document.getElementById('tsWho').textContent = '👤 ' + ME.name;
+  }
+
+  // lịch tháng
+  var y = Number(TS.month.slice(0, 4)), m = Number(TS.month.slice(5, 7));
+  var days = new Date(y, m, 0).getDate();
+  var lead = (new Date(y, m - 1, 1).getDay() + 6) % 7;     // thứ 2 đầu tuần
+  var mine = {};
+  tsEntries(TS.uid).forEach(function(r){ mine[r.date + '|' + r.session] = 1; });
+  var can = TS.uid !== null && !d.locked;
+  var h = '<div class="tsgrid">' + WD.map(function(w, i){
+    return '<div class="tshead' + (i === 6 ? ' sun' : '') + '">' + w + '</div>';
+  }).join('');
+  for (var i = 0; i < lead; i++) h += '<div class="tsday blank"></div>';
+  for (var dd = 1; dd <= days; dd++){
+    var iso = TS.month + '-' + ('0' + dd).slice(-2);
+    var wd = (lead + dd - 1) % 7;
+    var cnt = TS_SESS[TS.kind].filter(function(s){ return mine[iso + '|' + s]; }).length;
+    h += '<div class="tsday' + (wd === 6 ? ' sun' : '') + (iso === TODAY ? ' today' : '') + (cnt ? ' has' : '') + '">'
+      + '<div class="dn">' + dd + '</div><div class="slots">'
+      + TS_SESS[TS.kind].map(function(s){
+          var on = !!mine[iso + '|' + s];
+          return '<button class="slot ' + (off ? 'off' : 'ot') + (on ? ' on' : '') + '"'
+            + (can ? ' onclick="tsToggle(\'' + iso + '\',\'' + s + '\')"' : ' disabled')
+            + ' title="' + SESS_LB[s] + ' ' + vn(iso) + (on ? (off ? ' — nghỉ' : ' — tăng ca') : '') + '">'
+            + SESS_SHORT[s] + '</button>';
+        }).join('')
+      + '</div></div>';
+  }
+  document.getElementById('tsCal').innerHTML = h + '</div>';
+
+  // tổng hợp
+  var sum = document.getElementById('tsSum');
+  if (isAdmin()){
+    var rows = d.staff.map(function(u){ return { u: u, n: tsEntries(u.id).length }; });
+    sum.innerHTML = rows.length ? '<table class="tssum"><tbody>' + rows.map(function(r){
+      return '<tr class="' + (String(r.u.id) === String(TS.uid) ? 'sel' : '') + '" onclick="tsPickUser(' + r.u.id + ')">'
+        + '<td>' + esc(r.u.name) + '</td><td class="num"><b>' + r.n + '</b> buổi</td></tr>';
+    }).join('') + '</tbody></table>' + '<p class="hint">Bấm tên để xem / chấm cho người đó.</p>'
+      : '<p class="hint">Chưa có tài khoản nhân viên. Tạo ở Thiết lập › Tài khoản nhân viên.</p>';
+  } else {
+    var list = tsEntries(TS.uid).sort(function(a, b){ return (a.date + a.session).localeCompare(b.date + b.session); });
+    sum.innerHTML = '<div class="tsbig ' + (off ? 'off' : 'ot') + '"><b>' + list.length + '</b><span>buổi '
+      + (off ? 'OFF' : 'tăng ca') + '</span></div>'
+      + (list.length ? '<ul class="tslist">' + list.map(function(r){
+          return '<li>' + vn(r.date) + ' — ' + SESS_LB[r.session] + '</li>';
+        }).join('') + '</ul>' : '<p class="hint">Chưa chấm buổi nào trong tháng.</p>');
+  }
+}
+
+function tsToggle(date, session){
+  if (TS.uid === null) return;
+  call('apiTimesheetToggle', [{ uid: TS.uid, date: date, kind: TS.kind, session: session }]).then(function(list){
+    // thay các dòng của người này trong tháng bằng danh sách mới từ máy chủ
+    TS.data.entries = TS.data.entries.filter(function(r){ return String(r.uid) !== String(TS.uid); }).concat(list);
+    renderSheet();
+  }).catch(fail);
+}
+
+/* ==================================================== BẢNG LƯƠNG (quản trị) */
+
+var PR = { month: '', data: null };
+
+function openPayroll(){
+  if (!PR.month) PR.month = TODAY.slice(0, 7);
+  go('payroll');
+  loadPayroll();
+}
+
+function prMonth(n){ PR.month = n ? monthAdd(PR.month, n) : TODAY.slice(0, 7); loadPayroll(); }
+
+function loadPayroll(){
+  document.getElementById('prMonthLb').textContent = monthLabel(PR.month);
+  return call('apiPayroll', [PR.month]).then(function(d){ PR.data = d; renderPayroll(); }).catch(fail);
+}
+
+function prRow(r){
+  var ot = num(r.ot_count) * num(r.ot_rate), off = num(r.off_count) * num(r.off_rate);
+  return { ot: ot, off: off, total: Math.round(num(r.base_salary) + ot - off) };
+}
+
+function renderPayroll(){
+  var d = PR.data;
+  if (!d) return;
+  document.getElementById('prStatus').innerHTML = d.locked
+    ? '<span class="chip red">🔒 Đã chốt ' + esc(fmtStamp(d.lockedAt)) + (d.lockedBy ? ' bởi ' + esc(d.lockedBy) : '') + '</span>'
+    : '<span class="chip amber">Chưa chốt — số liệu theo chấm công hiện tại</span>';
+  var btn = document.getElementById('prLockBtn');
+  btn.textContent = d.locked ? '🔓 Mở chốt' : '🔒 Chốt lương tháng';
+  btn.className = 'btn ' + (d.locked ? '' : 'primary');
+  var T = { base: 0, otn: 0, ot: 0, offn: 0, off: 0, total: 0 };
+  document.querySelector('#tblPayroll tbody').innerHTML = d.rows.length ? d.rows.map(function(r, i){
+    var c = prRow(r);
+    T.base += num(r.base_salary); T.otn += num(r.ot_count); T.ot += c.ot;
+    T.offn += num(r.off_count); T.off += c.off; T.total += c.total;
+    return '<tr><td class="stt">' + (i + 1) + '</td><td><b>' + esc(r.name) + '</b></td>'
+      + '<td class="num">' + moneyPlain(r.base_salary) + '</td>'
+      + '<td class="num">' + (num(r.ot_count) || '—') + '</td>'
+      + '<td class="num">' + (num(r.ot_rate) ? moneyPlain(r.ot_rate) : '—') + '</td>'
+      + '<td class="num" style="color:#0F7A47">' + (c.ot ? '+' + moneyPlain(c.ot) : '—') + '</td>'
+      + '<td class="num">' + (num(r.off_count) || '—') + '</td>'
+      + '<td class="num">' + (num(r.off_rate) ? moneyPlain(r.off_rate) : '—') + '</td>'
+      + '<td class="num" style="color:#C2303B">' + (c.off ? '−' + moneyPlain(c.off) : '—') + '</td>'
+      + '<td class="num"><b style="font-size:14px">' + money(c.total) + '</b></td>'
+      + '<td class="mid">' + (d.locked ? '' : '<button class="btn sm" onclick="salaryDlg(' + r.uid + ')">Mức lương</button>') + '</td></tr>';
+  }).join('') : '<tr><td colspan="11" class="empty">Chưa có tài khoản nhân viên. Tạo ở Thiết lập › Tài khoản nhân viên.</td></tr>';
+  document.querySelector('#tblPayroll tfoot').innerHTML = d.rows.length
+    ? '<tr><td></td><td><b>TỔNG CỘNG</b></td><td class="num">' + moneyPlain(T.base) + '</td><td class="num">' + T.otn + '</td><td></td>'
+      + '<td class="num">' + moneyPlain(T.ot) + '</td><td class="num">' + T.offn + '</td><td></td>'
+      + '<td class="num">' + moneyPlain(T.off) + '</td><td class="num"><b>' + money(T.total) + '</b></td><td></td></tr>' : '';
+}
+
+function salaryDlg(uid){
+  var u = (DB.users || []).filter(function(x){ return String(x.id) === String(uid); })[0];
+  if (!u) return;
+  openDlg({
+    title: 'Mức lương — ' + esc(u.display_name || u.username),
+    body: '<label class="fld"><span>Lương cơ bản / tháng (đ)</span>'
+        + '<input type="text" inputmode="decimal" id="sl_base" value="' + (num(u.base_salary) ? moneyPlain(u.base_salary) : '') + '"></label>'
+        + '<div class="grid2">'
+        + '<label class="fld"><span>Mức tăng ca / buổi (đ)</span>'
+        + '<input type="text" inputmode="decimal" id="sl_ot" value="' + (num(u.ot_rate) ? moneyPlain(u.ot_rate) : '') + '"></label>'
+        + '<label class="fld"><span>Mức trừ OFF / buổi (đ)</span>'
+        + '<input type="text" inputmode="decimal" id="sl_off" value="' + (num(u.off_rate) ? moneyPlain(u.off_rate) : '') + '"></label>'
+        + '</div><p class="hint" style="margin:0">Thực nhận = Lương cơ bản + số buổi tăng ca × mức tăng ca − số buổi OFF × mức trừ OFF.</p>',
+    buttons: [
+      { label: 'Hủy', act: closeDlg },
+      { label: 'Lưu', cls: 'primary', act: function(){
+          var v = { base_salary: docSo(document.getElementById('sl_base').value),
+                    ot_rate: docSo(document.getElementById('sl_ot').value),
+                    off_rate: docSo(document.getElementById('sl_off').value) };
+          call('apiSaveSalary', [uid, v]).then(function(){
+            closeDlg();
+            return reloadAll().then(loadPayroll);
+          }).then(function(){ toast('Đã lưu mức lương.', 'ok'); }).catch(fail);
+        } },
+    ],
+  });
+  setTimeout(function(){ document.getElementById('sl_base').focus(); }, 60);
+}
+
+function prLock(){
+  var d = PR.data;
+  if (!d) return;
+  var lock = !d.locked;
+  confirmDlg(lock ? 'Chốt lương ' + monthLabel(PR.month) : 'Mở chốt ' + monthLabel(PR.month),
+    lock ? 'Giữ cố định bảng lương tháng này. Nhân viên sẽ <b>không sửa được chấm công / tăng ca</b> của tháng này nữa.'
+         : 'Mở chốt để sửa lại chấm công / tăng ca. Bảng lương sẽ tính lại theo chấm công hiện tại.',
+    function(){
+      call('apiPayrollLock', [PR.month, lock]).then(function(){ closeDlg(); return loadPayroll(); })
+        .then(function(){ toast(lock ? 'Đã chốt lương ' + monthLabel(PR.month) + '.' : 'Đã mở chốt.', 'ok'); }).catch(fail);
+    }, lock ? 'primary' : 'danger');
+}
+
+/** Chép bảng lương dạng cột (tab) để dán thẳng vào Excel / Google Sheets. */
+function prCopy(){
+  var d = PR.data;
+  if (!d || !d.rows.length) return toast('Chưa có dữ liệu.', 'err');
+  var head = ['STT', 'Nhân viên', 'Lương cơ bản', 'Tăng ca (buổi)', 'Mức TC/buổi', 'Tiền tăng ca',
+              'OFF (buổi)', 'Mức trừ/buổi', 'Trừ OFF', 'Thực nhận'];
+  var lines = [monthLabel(PR.month) + (d.locked ? ' (đã chốt)' : ''), head.join('\t')].concat(d.rows.map(function(r, i){
+    var c = prRow(r);
+    return [i + 1, r.name, num(r.base_salary), num(r.ot_count), num(r.ot_rate), c.ot,
+            num(r.off_count), num(r.off_rate), c.off, c.total].join('\t');
+  }));
+  copyText(lines.join('\n'), 'Đã sao chép bảng lương — dán vào Excel bằng Ctrl+V.');
 }
 
 /* ==================================================== XUẤT EXCEL */
