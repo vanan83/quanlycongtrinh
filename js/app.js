@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.15-37';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.15-38';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -280,6 +280,7 @@ function renderAll(){
   renderDebt();
   renderArisings();
   renderUsers();
+  renderHistory();
 }
 
 function go(page){
@@ -1061,7 +1062,8 @@ function projectDlg(p){
         : '<p class="hint">Lưu công trình trước, sau đó mở lại để thêm phát sinh.</p>')
 
       + '<label class="fld" style="margin-top:14px"><span>Ghi chú</span>'
-      + '<textarea id="pj_note">' + esc(p.note) + '</textarea></label>',
+      + '<textarea id="pj_note">' + esc(p.note) + '</textarea></label>'
+      + (p.id ? historyBox(p.id) : ''),
     buttons: [
       { label: 'Hủy', act: closeDlg },
       { label: 'Lưu công trình', cls: 'primary', act: pjSave },
@@ -1789,7 +1791,8 @@ function workDlg(id){
       + '<div class="sect"><h4>Phát sinh</h4><div id="ar_box"></div>'
       + '<button class="btn sm primary" style="margin-top:10px" onclick="arisingDlg(PD.id)">± Thêm phát sinh</button>'
       + '<p class="hint">' + (isAdmin() ? 'Quản lý thêm phát sinh thì được duyệt luôn, tự cộng vào công nợ.'
-                                        : 'Phát sinh gửi lên sẽ chờ quản lý duyệt.') + '</p></div>',
+                                        : 'Phát sinh gửi lên sẽ chờ quản lý duyệt.') + '</p></div>'
+      + historyBox(p.id),
     buttons: buttons,
   });
   renderArBox();
@@ -1861,6 +1864,9 @@ function renderArBox(){
       ? '<span class="chip green">Đã duyệt' + (isAdmin() && num(a.approved_amount) !== num(a.amount) ? ' ' + moneyPlain(a.approved_amount) : '') + '</span>'
       : (a.status === 'rejected' ? '<span class="chip red">Từ chối</span>' : '<span class="chip amber">Chờ duyệt</span>');
     var acts = '';
+    if (isAdmin() || a.created_uid === ME.username){
+      acts += '<button class="btn ghost sm" title="Sửa phát sinh này" onclick="arisingDlg(PD.id,' + a.id + ')">✏️</button>';
+    }
     if (isAdmin()) acts += '<button class="btn ghost sm" onclick="reviewDlg(' + a.id + ',true)">Duyệt…</button>';
     if (isAdmin() || (a.created_uid === ME.username && a.status === 'pending')){
       acts += '<button class="btn ghost sm" style="color:#D64545" onclick="wkDelArising(' + a.id + ')">✕</button>';
@@ -1875,9 +1881,11 @@ function renderArBox(){
 function wkRenderArisings(){ renderArBox(); }   // tên cũ, giữ cho các chỗ gọi cũ
 
 /** Cửa sổ nhập một lần phát sinh: Lần N (tự đánh số), ngày, số tiền, nội dung. */
-function arisingDlg(projectId){
+function arisingDlg(projectId, editId){
   var p = DB.projects.filter(function(x){ return String(x.id) === String(projectId); })[0];
   if (!p) return toast('Hãy chọn một công trình.', 'err');
+  var ed = editId ? (DB.arisings || []).filter(function(x){ return String(x.id) === String(editId); })[0] : null;
+  if (ed) return arisingEditDlg(p, ed);
   var lan = arisingSeq(p.id).next;
   openDlg({
     nested: document.getElementById('mask').classList.contains('on'),
@@ -1908,6 +1916,45 @@ function arisingDlg(projectId){
             if (document.getElementById('pj_amount')) pjRecalc();
             toast(wasPaid ? 'Đã thêm phát sinh lần ' + lan + ': ' + money(rec.amount) + '. Công trình đã thu đủ trước đó — khoản này vào Công nợ (PS chưa thu).'
                   : (isAdmin() ? 'Đã thêm phát sinh lần ' + lan + ': ' + money(rec.amount) + '.' : 'Đã gửi phát sinh lần ' + lan + ', chờ quản lý duyệt.'), 'ok');
+          }).catch(fail);
+        } },
+    ],
+  });
+  setTimeout(function(){ document.getElementById('ps_amt').focus(); }, 60);
+}
+
+/** Sửa một phát sinh đã nhập (✏️). */
+function arisingEditDlg(p, a){
+  var lan = arisingSeq(p.id).map[a.id];
+  var warn = !isAdmin() && a.status !== 'pending';
+  openDlg({
+    nested: document.getElementById('mask').classList.contains('on'),
+    title: '✏️ Sửa phát sinh' + (lan ? ' lần ' + lan : '') + ' — ' + esc(p.name),
+    body: '<div class="grid2">'
+        + '<label class="fld"><span>Ngày phát sinh</span><input type="date" id="ps_date" value="' + esc(arisingDate(a)) + '"></label>'
+        + '<label class="fld"><span>Số tiền (đ)</span><input type="text" inputmode="decimal" id="ps_amt" value="'
+        + (num(a.amount) ? moneyPlain(a.amount) : '') + '"></label>'
+        + '</div>'
+        + '<label class="fld"><span>Nội dung / ghi chú</span><textarea id="ps_text">' + esc(a.content) + '</textarea></label>'
+        + '<p class="hint" style="margin:0">' + (isAdmin()
+            ? (a.status === 'approved' ? 'Khoản này đã duyệt — số được duyệt sẽ đổi theo số tiền mới.' : 'Lần sửa được ghi vào Lịch sử sửa.')
+            : (warn ? '⚠️ Khoản này đã được quản lý xử lý — sửa xong sẽ quay về <b>Chờ duyệt</b> để duyệt lại.'
+                    : 'Lần sửa được ghi vào Lịch sử sửa.')) + '</p>',
+    buttons: [
+      { label: 'Hủy', act: closeDlg },
+      { label: 'Lưu thay đổi', cls: 'primary', act: function(){
+          var rec = { date: document.getElementById('ps_date').value,
+                      amount: docTien(document.getElementById('ps_amt').value),
+                      content: document.getElementById('ps_text').value.trim() };
+          if (!rec.content) return toast('Hãy ghi nội dung phát sinh.', 'err');
+          if (!(rec.amount > 0)) return toast('Hãy nhập số tiền phát sinh.', 'err');
+          call('apiEditArising', [a.id, rec]).then(function(r){
+            closeDlg();
+            return reloadAll().then(function(){ return r; });
+          }).then(function(r){
+            renderArBox();
+            if (document.getElementById('pj_amount')) pjRecalc();
+            toast(r && r.back ? 'Đã sửa — phát sinh quay về chờ quản lý duyệt lại.' : 'Đã sửa phát sinh.', 'ok');
           }).catch(fail);
         } },
     ],
@@ -1946,6 +1993,76 @@ function wkSave(){
     closeDlg();
     return reloadAll();
   }).then(function(){ toast('Đã lưu.', 'ok'); }).catch(fail);
+}
+
+/* ==================================================== LỊCH SỬ SỬA */
+
+function historyOf(pid){
+  return (DB.history || []).filter(function(h){ return String(h.project_id) === String(pid); });
+}
+
+/** Một dòng lịch sử: các thay đổi xuống dòng cho dễ đọc; phần tiền (quản trị) tô tím. */
+function historyText(h){
+  var parts = String(h.detail || '').split('; ').filter(String).map(function(s){ return '<div>' + esc(s) + '</div>'; });
+  if (h.detail_money) parts = parts.concat(String(h.detail_money).split('; ').map(function(s){
+    return '<div class="hs-money">💰 ' + esc(s) + '</div>';
+  }));
+  return parts.join('') || '<span class="hint">—</span>';
+}
+
+/** Mục "Lịch sử sửa" (thu gọn) trong cửa sổ công trình. */
+function historyBox(pid){
+  var list = historyOf(pid);
+  return '<details class="sect hs-sect"><summary><h4>Lịch sử sửa <span class="hs-count">' + list.length + '</span></h4></summary>'
+    + (list.length ? '<div class="hs-list">' + list.slice(0, 50).map(function(h){
+        return '<div class="hs-item"><div class="hs-when"><b>' + esc(h.user) + '</b><small>' + fmtStamp(h.at) + '</small></div>'
+          + '<div class="hs-what"><span class="chip ' + hsChip(h.action) + '">' + esc(h.action) + '</span>' + historyText(h) + '</div></div>';
+      }).join('') + '</div>'
+      : '<p class="hint" style="margin:8px 0 0">Chưa có lần sửa nào được ghi lại.</p>')
+    + '</details>';
+}
+
+function hsChip(action){
+  if (/Xóa|Từ chối/.test(action)) return 'red';
+  if (/Thêm|Duyệt|Nhân bản/.test(action)) return 'green';
+  if (/Gửi/.test(action)) return 'amber';
+  return 'blue';
+}
+
+function renderHistory(){
+  var tb = document.querySelector('#tblHistory tbody');
+  if (!tb) return;
+  var all = DB.history || [];
+  var us = document.getElementById('hsUser'), cur = us.value;
+  var names = [];
+  all.forEach(function(h){ if (h.user && names.indexOf(h.user) < 0) names.push(h.user); });
+  names.sort(catCmp);
+  us.innerHTML = '<option value="">Mọi người</option>' + names.map(function(n){
+    return '<option' + (n === cur ? ' selected' : '') + '>' + esc(n) + '</option>';
+  }).join('');
+  var kw = (document.getElementById('hsSearch').value || '').trim().toLowerCase();
+  var days = Number(document.getElementById('hsDays').value);
+  var from = '';
+  if (days){
+    var d = new Date(TODAY + 'T00:00:00'); d.setDate(d.getDate() - days + 1);
+    from = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+  }
+  var rows = all.filter(function(h){
+    if (cur && h.user !== cur) return false;
+    if (from && String(h.at).slice(0, 10) < from) return false;
+    if (!kw) return true;
+    return [h.project_name, h.detail, h.detail_money, h.action, h.user].some(function(v){
+      return String(v || '').toLowerCase().indexOf(kw) >= 0;
+    });
+  });
+  tb.innerHTML = rows.length ? rows.slice(0, 500).map(function(h){
+    return '<tr' + (h.project_id ? ' ondblclick="workDlg(' + h.project_id + ')"' : '') + '>'
+      + '<td class="mid" style="font-size:12.5px">' + fmtStamp(h.at) + '</td>'
+      + '<td class="mid"><b>' + esc(h.user) + '</b></td>'
+      + '<td><b>' + esc(h.project_name) + '</b></td>'
+      + '<td class="mid"><span class="chip ' + hsChip(h.action) + '">' + esc(h.action) + '</span></td>'
+      + '<td class="hs-cell">' + historyText(h) + '</td></tr>';
+  }).join('') : '<tr><td colspan="5" class="empty">Không có lần sửa nào trong khoảng này.</td></tr>';
 }
 
 /* ==================================================== TRANG PHÁT SINH (quản lý) */

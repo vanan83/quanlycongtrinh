@@ -60,6 +60,7 @@
     <button class="navbtn admin-only" data-page="payroll" data-kind="pay" onclick="openPayroll()"><i class="ic">💵</i><span class="lb">Bảng lương</span></button>
     <div class="navsec admin-only">Quản lý</div>
     <button class="navbtn admin-only" data-page="arisings"><i class="ic">🧾</i><span class="lb">Phát sinh</span><span class="navbadge" id="arBadge"></span></button>
+    <button class="navbtn admin-only" data-page="history"><i class="ic">🕘</i><span class="lb">Lịch sử sửa</span></button>
     <button class="navbtn" data-page="area"><i class="ic">📐</i><span class="lb">Tính diện tích</span></button>
     <button class="navbtn admin-only" data-page="partners"><i class="ic">🤝</i><span class="lb">Đối tác</span></button>
     <button class="navbtn admin-only" data-page="projects"><i class="ic">🏗️</i><span class="lb">Công trình</span></button>
@@ -164,6 +165,31 @@
     </section>
 
     <!-- ------------------------------------------------------- PHÁT SINH (QUẢN LÝ) -->
+    <section class="page" id="page-history">
+      <div class="phead">
+        <div><h1>Lịch sử sửa</h1>
+          <p>Ai sửa công trình nào, lúc nào, đổi gì — mới nhất ở trên</p></div>
+      </div>
+      <div class="toolbar">
+        <input type="search" id="hsSearch" placeholder="Tìm theo công trình, nội dung…" oninput="renderHistory()" style="flex:1;min-width:180px">
+        <select id="hsUser" style="width:auto" onchange="renderHistory()"></select>
+        <select id="hsDays" style="width:auto" onchange="renderHistory()">
+          <option value="1">Hôm nay</option>
+          <option value="7" selected>7 ngày</option>
+          <option value="30">30 ngày</option>
+          <option value="0">Tất cả</option>
+        </select>
+      </div>
+      <div class="tablewrap">
+        <table id="tblHistory">
+          <thead><tr><th class="mid" style="width:120px">Thời gian</th><th class="mid">Người sửa</th><th>Công trình</th>
+            <th class="mid">Thao tác</th><th>Nội dung thay đổi</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="hint">Bấm đúp một dòng để mở công trình. Dòng màu tím: thay đổi về tiền (chỉ quản trị thấy).</p>
+    </section>
+
     <section class="page" id="page-arisings">
       <div class="phead">
         <div><h1>Phát sinh</h1>

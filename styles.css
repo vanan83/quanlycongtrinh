@@ -716,3 +716,27 @@ tbody tr.grp .grp-sum b{font-weight:800}
 tbody tr.grp .grp-sum .red{color:#C2303B}
 tbody tr.grp .grp-sum .ok{color:#0F7A47;font-weight:800}
 @media (max-width:720px){ tbody tr.grp .grp-sum{float:none;display:block;margin-top:2px} }
+
+/* Lịch sử sửa */
+details.hs-sect > summary{list-style:none;cursor:pointer}
+details.hs-sect > summary::-webkit-details-marker{display:none}
+details.hs-sect > summary h4::after{content:' ▸';color:var(--gold)}
+details.hs-sect[open] > summary h4::after{content:' ▾'}
+.hs-count{display:inline-block;min-width:20px;padding:0 6px;border-radius:10px;background:rgba(255,255,255,.22);font-size:11px;text-align:center}
+.hs-list{max-height:320px;overflow:auto;margin-top:6px}
+.hs-item{display:grid;grid-template-columns:150px minmax(0,1fr);gap:10px;padding:8px 0;border-top:1px dashed #DCE5F0}
+.hs-item:first-child{border-top:0}
+.hs-when b{display:block;color:var(--navy);font-size:13px}
+.hs-when small{color:#6B7A90;font-size:11.5px}
+.hs-what{font-size:13px;line-height:1.5}
+.hs-what .chip{margin-bottom:3px}
+.hs-money{color:#6D3FE0;font-weight:600}
+.hs-cell{font-size:13px;line-height:1.5}
+@media (max-width:600px){ .hs-item{grid-template-columns:1fr;gap:2px} }
+/* tiêu đề "Lịch sử sửa" (nằm trong summary) cùng kiểu thanh xanh của các khối khác */
+.dlg details.hs-sect > summary h4{margin:-14px -14px 0;padding:11px 14px;border-radius:11px 11px 0 0;display:flex;align-items:center;gap:8px;
+  background:linear-gradient(100deg,#1D4E8F 0%,#2C66B2 100%);color:#fff;border-bottom:2px solid var(--gold);
+  font-size:12.5px;letter-spacing:.7px;text-transform:uppercase;font-weight:700}
+.dlg details.hs-sect > summary h4::before{content:'';width:4px;height:15px;border-radius:2px;background:var(--gold)}
+.dlg details.hs-sect:not([open]) > summary h4{margin-bottom:-14px;border-radius:11px}
+.dlg details.hs-sect[open] .hs-list{margin-top:10px}
