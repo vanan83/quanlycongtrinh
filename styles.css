@@ -381,3 +381,18 @@ label.fld > span b{color:inherit}
 .btn.ghost.sm{background:transparent;border-color:transparent;box-shadow:none;color:var(--muted)}
 .btn.ghost.sm:hover{background:#EEF3F9;color:var(--ink)}
 .dlg .foot .btn.danger{background:var(--red);border-color:var(--red);color:#fff}
+
+/* ============================================================ NHÃN Ô NHẬP — kiểu chữ trơn (thay kiểu thẻ màu)
+   Màu chỉ dùng cho cấu trúc (tiêu đề nhóm, ô đang nhập, nút chính); nhãn để chữ đậm vừa, không nền. */
+label.fld > span,.dlg label.fld > span{
+  display:block;padding:0;margin-bottom:6px;border:0;border-radius:0;background:none;
+  font-size:12.5px;font-weight:600;color:#24406A;letter-spacing:.1px}
+.dlg .sect{background:#fff;border:1px solid #DDE6F1;box-shadow:0 1px 2px rgba(11,35,71,.04)}
+.dlg .sect > h4{margin:-14px -14px 14px;padding:11px 14px;border-radius:11px 11px 0 0;
+  background:#F4F7FB;border-bottom:1px solid #E3EAF3;color:var(--navy);font-size:12px}
+.dlg .sect > h4::before{background:var(--blue)}
+.dlg .form-sect{margin-top:0}
+.dlg input[type=text],.dlg select,.dlg textarea{background:#FBFCFE;border-color:#D3DDE9}
+.dlg input[type=text]:hover,.dlg select:hover,.dlg textarea:hover{border-color:#B8C8DC}
+.dlg input:focus,.dlg select:focus,.dlg textarea:focus{background:#fff}
+.dlg .body > p.hint:first-child{border-left:3px solid var(--blue)}

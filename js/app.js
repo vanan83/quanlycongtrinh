@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.15-8';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.15-9';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -1576,7 +1576,7 @@ function workDlg(id){
     }),
     advances: [],
   };
-  var info = [p.category, partnerName(p.partner_id) || (p.partner_hint ? p.partner_hint + '?' : '')]
+  var info = [p.category ? catLabel(p.category) : '', partnerName(p.partner_id) || (p.partner_hint ? p.partner_hint + '?' : '')]
     .filter(String).map(esc).join(' · ');
   var buttons = [{ label: 'Hủy', act: closeDlg }];
   if (isAdmin()) buttons.push({ label: '💰 Đơn giá / tạm ứng', act: function(){ closeDlg(); openProject(p.id); } });
@@ -1589,6 +1589,7 @@ function workDlg(id){
       '<p class="hint" style="margin-top:0">' + info
       + (p.drive_id ? ' · <a href="' + folderUrl(p.drive_id) + '" target="_blank" rel="noopener">📁 Mở thư mục</a>' : '')
       + (p.updated_by ? ' · Cập nhật: ' + esc(p.updated_by) + ' ' + fmtStamp(p.updated_at) : '') + '</p>'
+      + '<div class="sect form-sect"><h4>Thông tin công trình</h4>'
       + '<div class="grid3 wk-row">'
       + '<label class="fld"><span>Đối tác' + (p.partner_hint && !p.partner_id
           ? ' <em class="hint-inline">(thư mục ghi: ' + esc(p.partner_hint) + ')</em>' : '') + '</span>'
@@ -1600,9 +1601,9 @@ function workDlg(id){
       + '<input type="text" id="wk_status" list="wk_statusList" value="' + esc(p.status) + '">'
       + statusDatalist() + '</label>'
       + '</div>'
-      + '<label class="fld" style="margin-top:12px"><span>Ghi chú</span>'
+      + '<label class="fld" style="margin:4px 0 0"><span>Ghi chú</span>'
       + '<textarea id="wk_note" placeholder="VD: Cải tạo (tính 40% diện tích), nâng thêm 2 tầng…">'
-      + esc(p.note) + '</textarea></label>'
+      + esc(p.note) + '</textarea></label></div>'
       + '<div class="sect"><h4>Phát sinh</h4><div id="wk_arBox"></div>'
       + '<div class="arform">'
       + '<label class="fld"><span>Nội dung phát sinh</span>'
