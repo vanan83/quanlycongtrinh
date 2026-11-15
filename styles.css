@@ -235,6 +235,7 @@ td.stt{text-align:center;color:var(--muted);width:48px;font-weight:600;font-vari
 
 /* ============================================================ PHÂN QUYỀN */
 body.role-staff .admin-only{display:none !important}
+body:not(.role-staff) .staff-only{display:none !important}   /* quản trị không cần menu Tính diện tích */
 body.not-owner .owner-only{display:none !important}
 body:not(.not-owner) .not-owner-only{display:none !important}
 .navbadge{margin-left:auto;background:var(--red);color:#fff;border-radius:999px;font-size:10px;
