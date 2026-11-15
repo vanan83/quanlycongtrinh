@@ -1,0 +1,3 @@
+# Bộ cài Windows phải giữ nguyên xuống dòng CRLF
+*.cmd -text
+*.ps1 -text
