@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.15-44';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.16-01';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -2561,7 +2561,9 @@ function exportSheet(kind){
       body: '<p style="margin-top:0">Đã tạo file <b>' + esc(r.name) + '</b> gồm <b>' + r.count
           + '</b> công trình, lưu trên Google Drive của bạn.</p>'
           + '<p class="hint">Cột <b>Thành tiền</b> và <b>Còn lại</b> là công thức trỏ vào các cột '
-          + 'diện tích – đơn giá – hệ số, đối tác mở ra tự kiểm tra được.</p>',
+          + 'diện tích – đơn giá – hệ số, đối tác mở ra tự kiểm tra được.</p>'
+          + (kind === 'debt' ? '<p class="hint" style="margin-bottom:0">💳 Khi đối tác trả đủ số tiền trong file này: '
+            + 'bấm <b>Thanh toán theo file đã xuất</b> ở trang Công nợ — app tự ghi tiền cho từng công trình trong file.</p>' : ''),
       buttons: [
         { label: 'Đóng', act: closeDlg },
         { label: '⬇ Tải bản .xlsx', act: function(){ window.open(r.xlsxUrl, '_blank'); } },
@@ -2570,6 +2572,69 @@ function exportSheet(kind){
       ],
     });
   }).catch(fail);
+}
+
+/* ==================================================== THANH TOÁN THEO FILE CÔNG NỢ ĐÃ XUẤT */
+
+function payByExportDlg(){
+  toast('Đang tải danh sách file đã xuất…');
+  call('apiDebtExports', []).then(function(list){
+    var open = list.filter(function(b){ return !b.paid_at; });
+    var done = list.filter(function(b){ return b.paid_at; }).slice(0, 8);
+    var card = function(b){
+      var paid = !!b.paid_at;
+      var changed = !paid && b.pay_total !== b.total;
+      return '<div class="pb-card' + (paid ? ' paid' : '') + '">'
+        + '<div class="pb-head"><div><b>' + esc(b.partner_name || 'Tất cả đối tác') + '</b>'
+        + '<small>Xuất ' + fmtStamp(b.at) + ' · ' + esc(b.user || '') + ' · '
+        + '<a href="' + esc(b.file_url) + '" target="_blank" rel="noopener">' + esc(b.file_name) + '</a></small></div>'
+        + '<div class="pb-amt">' + money(paid ? b.total : b.pay_total) + '</div></div>'
+        + '<details><summary>' + b.items.length + ' công trình</summary><table class="pb-tbl">'
+        + b.items.map(function(x){
+            return '<tr><td>' + esc(x.name) + (x.now === null ? ' <span class="chip red">đã xóa</span>' : '') + '</td>'
+              + '<td class="num">' + money(x.remain) + '</td>'
+              + (paid ? '' : '<td class="num">' + (x.pay !== x.remain
+                    ? '<span class="chip amber" title="Còn phải thu hiện tại: ' + money(Math.max(0, x.now || 0)) + '">ghi ' + money(x.pay) + '</span>' : '') + '</td>')
+              + '</tr>';
+          }).join('') + '</table></details>'
+        + (paid ? '<p class="pb-done">✔ Đã ghi nhận thanh toán ngày ' + vn(b.paid_date) + ' · ' + esc(b.paid_by) + '</p>'
+          : (changed ? '<p class="hint" style="margin:6px 0 0">⚠️ Một số công trình đã thu bớt sau khi xuất file — app chỉ ghi phần còn thiếu (ô vàng).</p>' : '')
+            + '<div class="pb-act"><label>Ngày nhận tiền <input type="date" id="pb_date_' + b.id + '" value="' + TODAY + '"></label>'
+            + '<button class="btn ghost sm" style="color:#C2303B" onclick="payByExportDel(' + b.id + ')">Xóa khỏi danh sách</button>'
+            + '<button class="btn success" onclick="payByExport(' + b.id + ',' + b.pay_total + ',' + b.items.length + ')"'
+            + (b.pay_total > 0 ? '' : ' disabled') + '>✔ Đối tác đã trả đủ file này</button></div>')
+        + '</div>';
+    };
+    openDlg({
+      wide: true,
+      title: '💳 Thanh toán theo file công nợ đã xuất',
+      body: (open.length ? open.map(card).join('')
+              : '<p class="hint" style="margin-top:0">Chưa có file nào chờ thanh toán. Chọn đối tác › <b>⬇ Xuất Excel</b> để gửi công nợ — file đó sẽ hiện ở đây.</p>')
+        + (done.length ? '<h4 class="pb-sub">Đã thanh toán gần đây</h4>' + done.map(card).join('') : ''),
+      buttons: [{ label: 'Đóng', act: closeDlg }],
+    });
+  }).catch(fail);
+}
+
+function payByExport(id, total, n){
+  var date = (document.getElementById('pb_date_' + id) || {}).value || TODAY;
+  confirmDlg('Ghi nhận đối tác đã trả',
+    'Ghi nhận đã thu <b>' + money(total) + '</b> cho <b>' + n + ' công trình</b> trong file, ngày <b>' + vn(date) + '</b>?<br>'
+    + '<span class="hint">Mỗi công trình được thêm một lần tạm ứng đúng bằng số "Còn lại" trong file.</span>',
+    function(){
+      call('apiPayDebtExport', [id, date]).then(function(r){
+        closeDlg(); closeDlg();
+        return reloadAll().then(function(){
+          toast('Đã ghi nhận thu ' + money(r.total) + ' cho ' + r.count + ' công trình.', 'ok');
+        });
+      }).catch(fail);
+    }, 'success', true);
+}
+
+function payByExportDel(id){
+  confirmDlg('Xóa file khỏi danh sách', 'Xóa file này khỏi danh sách chờ thanh toán? (Không ảnh hưởng tiền đã ghi.)', function(){
+    call('apiDeleteDebtExport', [id]).then(function(){ closeDlg(); closeDlg(); payByExportDlg(); }).catch(fail);
+  }, 'danger', true);
 }
 
 /* ==================================================== TRANG TÍNH DIỆN TÍCH */

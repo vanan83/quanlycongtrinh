@@ -753,3 +753,23 @@ details.hs-sect[open] > summary h4::after{content:' ▾'}
 .warnbar-act{float:right;font-weight:700;color:#C2303B;white-space:nowrap}
 .warnbar.hidden{display:none}
 @media (max-width:600px){ .warnbar-act{float:none;display:block} }
+
+/* Thanh toán theo file công nợ đã xuất */
+.btn.violet-btn{background:linear-gradient(180deg,#8B5CF6,#7042D8);border-color:#7042D8;color:#fff;box-shadow:0 3px 10px rgba(112,66,216,.3)}
+.btn.violet-btn:hover{background:#5B2FC9;border-color:#5B2FC9;color:#fff}
+.pb-card{border:1px solid #D9E3F0;border-left:4px solid #7042D8;border-radius:10px;padding:12px 14px;margin:0 0 12px;background:#fff}
+.pb-card.paid{border-left-color:#12925A;background:#F7FBF8;opacity:.9}
+.pb-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.pb-head b{color:var(--navy);font-size:14.5px}
+.pb-head small{display:block;color:#6B7A90;font-size:12px;margin-top:2px}
+.pb-amt{font-size:18px;font-weight:800;color:#C2303B;white-space:nowrap}
+.pb-card.paid .pb-amt{color:#0F7A47}
+.pb-card details{margin-top:6px}
+.pb-card summary{cursor:pointer;color:#1767D8;font-size:13px;font-weight:600}
+.pb-tbl{width:100%;margin-top:6px;font-size:13px;border-collapse:collapse}
+.pb-tbl td{padding:4px 6px;border-top:1px dashed #E3EAF3}
+.pb-act{display:flex;gap:10px;align-items:center;justify-content:flex-end;flex-wrap:wrap;margin-top:10px}
+.pb-act label{font-size:13px;color:#334A6B;display:flex;gap:6px;align-items:center;margin-right:auto}
+.pb-act input{width:auto;margin:0}
+.pb-done{margin:8px 0 0;color:#0F7A47;font-weight:700;font-size:13px}
+.pb-sub{margin:16px 0 8px;color:#5A6B85;font-size:12px;text-transform:uppercase;letter-spacing:.4px}
