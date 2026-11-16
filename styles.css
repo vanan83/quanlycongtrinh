@@ -773,3 +773,10 @@ details.hs-sect[open] > summary h4::after{content:' ▾'}
 .pb-act input{width:auto;margin:0}
 .pb-done{margin:8px 0 0;color:#0F7A47;font-weight:700;font-size:13px}
 .pb-sub{margin:16px 0 8px;color:#5A6B85;font-size:12px;text-transform:uppercase;letter-spacing:.4px}
+
+.pb-tbl .pb-th td{font-size:11.5px;font-weight:700;color:#5A6B85;text-transform:uppercase;border-top:0}
+.pb-tbl .pb-ck{width:70px;text-align:center}
+.pb-tbl input[type=checkbox]{width:17px;height:17px;margin:0;accent-color:#12925A;cursor:pointer}
+.pb-all{display:flex;gap:5px;align-items:center;cursor:pointer;text-transform:none}
+.pb-tbl tr.pb-paid td{color:#7A8BA3;text-decoration:line-through}
+.pb-tbl tr.pb-paid td.pb-ck{text-decoration:none}

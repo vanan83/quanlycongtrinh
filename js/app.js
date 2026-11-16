@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.16-01';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.16-02';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -2581,28 +2581,38 @@ function payByExportDlg(){
   call('apiDebtExports', []).then(function(list){
     var open = list.filter(function(b){ return !b.paid_at; });
     var done = list.filter(function(b){ return b.paid_at; }).slice(0, 8);
+    PB_LIST = list;
     var card = function(b){
       var paid = !!b.paid_at;
-      var changed = !paid && b.pay_total !== b.total;
-      return '<div class="pb-card' + (paid ? ' paid' : '') + '">'
+      var partial = !paid && b.items.some(function(x){ return x.paid_date; });
+      return '<div class="pb-card' + (paid ? ' paid' : '') + '" id="pb_card_' + b.id + '">'
         + '<div class="pb-head"><div><b>' + esc(b.partner_name || 'Tất cả đối tác') + '</b>'
         + '<small>Xuất ' + fmtStamp(b.at) + ' · ' + esc(b.user || '') + ' · '
         + '<a href="' + esc(b.file_url) + '" target="_blank" rel="noopener">' + esc(b.file_name) + '</a></small></div>'
-        + '<div class="pb-amt">' + money(paid ? b.total : b.pay_total) + '</div></div>'
-        + '<details><summary>' + b.items.length + ' công trình</summary><table class="pb-tbl">'
+        + '<div class="pb-amt" id="pb_sum_' + b.id + '">' + money(paid ? b.total : b.pay_total) + '</div></div>'
+        + '<details' + (paid ? '' : ' open') + '><summary>' + b.items.length + ' công trình'
+        + (partial ? ' · <span style="color:#0F7A47">đã trả ' + b.items.filter(function(x){ return x.paid_date; }).length + '</span>' : '')
+        + '</summary><table class="pb-tbl">'
+        + (paid ? '' : '<tr class="pb-th"><td><label class="pb-all"><input type="checkbox" checked onchange="pbToggleAll(' + b.id + ',this.checked)"> Đã trả</label></td>'
+            + '<td>Công trình</td><td class="num">Còn lại trong file</td><td></td></tr>')
         + b.items.map(function(x){
-            return '<tr><td>' + esc(x.name) + (x.now === null ? ' <span class="chip red">đã xóa</span>' : '') + '</td>'
+            var can = !paid && !x.paid_date && x.pay > 0;
+            var tick = paid ? '' : '<td class="pb-ck">' + (x.paid_date
+                ? '<span class="chip green" title="Đã ghi ' + money(x.paid_amt || 0) + '">✔ ' + vn(x.paid_date).slice(0, 5) + '</span>'
+                : (can ? '<input type="checkbox" class="pb-it" data-b="' + b.id + '" data-id="' + x.id + '" data-pay="' + x.pay + '" checked onchange="pbSum(' + b.id + ')">'
+                       : '<span class="hint">—</span>')) + '</td>';
+            return '<tr' + (x.paid_date ? ' class="pb-paid"' : '') + '>' + tick
+              + '<td>' + esc(x.name) + (x.now === null ? ' <span class="chip red">đã xóa</span>' : '') + '</td>'
               + '<td class="num">' + money(x.remain) + '</td>'
-              + (paid ? '' : '<td class="num">' + (x.pay !== x.remain
+              + (paid ? '' : '<td class="num">' + (!x.paid_date && x.pay !== x.remain
                     ? '<span class="chip amber" title="Còn phải thu hiện tại: ' + money(Math.max(0, x.now || 0)) + '">ghi ' + money(x.pay) + '</span>' : '') + '</td>')
               + '</tr>';
           }).join('') + '</table></details>'
         + (paid ? '<p class="pb-done">✔ Đã ghi nhận thanh toán ngày ' + vn(b.paid_date) + ' · ' + esc(b.paid_by) + '</p>'
-          : (changed ? '<p class="hint" style="margin:6px 0 0">⚠️ Một số công trình đã thu bớt sau khi xuất file — app chỉ ghi phần còn thiếu (ô vàng).</p>' : '')
+          : '<p class="hint" style="margin:6px 0 0">Bỏ tích công trình đối tác <b>chưa trả</b> lần này — các công trình đó vẫn nằm trong file để lần sau ghi tiếp.</p>'
             + '<div class="pb-act"><label>Ngày nhận tiền <input type="date" id="pb_date_' + b.id + '" value="' + TODAY + '"></label>'
             + '<button class="btn ghost sm" style="color:#C2303B" onclick="payByExportDel(' + b.id + ')">Xóa khỏi danh sách</button>'
-            + '<button class="btn success" onclick="payByExport(' + b.id + ',' + b.pay_total + ',' + b.items.length + ')"'
-            + (b.pay_total > 0 ? '' : ' disabled') + '>✔ Đối tác đã trả đủ file này</button></div>')
+            + '<button class="btn success" id="pb_btn_' + b.id + '" onclick="payByExport(' + b.id + ')"></button></div>')
         + '</div>';
     };
     openDlg({
@@ -2613,19 +2623,48 @@ function payByExportDlg(){
         + (done.length ? '<h4 class="pb-sub">Đã thanh toán gần đây</h4>' + done.map(card).join('') : ''),
       buttons: [{ label: 'Đóng', act: closeDlg }],
     });
+    open.forEach(function(b){ pbSum(b.id); });
   }).catch(fail);
 }
+var PB_LIST = [];
 
-function payByExport(id, total, n){
+function pbChecked(id){
+  return Array.prototype.slice.call(document.querySelectorAll('.pb-it[data-b="' + id + '"]')).filter(function(c){ return c.checked; });
+}
+/** Tổng tiền các công trình đang tích + chữ trên nút. */
+function pbSum(id){
+  var all = document.querySelectorAll('.pb-it[data-b="' + id + '"]').length;
+  var ck = pbChecked(id);
+  var sum = ck.reduce(function(t, c){ return t + num(c.dataset.pay); }, 0);
+  document.getElementById('pb_sum_' + id).textContent = money(sum);
+  var btn = document.getElementById('pb_btn_' + id);
+  btn.disabled = !ck.length;
+  btn.textContent = ck.length && ck.length === all ? '✔ Đối tác đã trả đủ file này'
+    : '✔ Ghi nhận đã trả ' + ck.length + '/' + all + ' công trình';
+}
+function pbToggleAll(id, on){
+  document.querySelectorAll('.pb-it[data-b="' + id + '"]').forEach(function(c){ c.checked = on; });
+  pbSum(id);
+}
+
+function payByExport(id){
   var date = (document.getElementById('pb_date_' + id) || {}).value || TODAY;
+  var ck = pbChecked(id);
+  if (!ck.length) return toast('Hãy tích công trình đối tác đã trả.', 'err');
+  var all = document.querySelectorAll('.pb-it[data-b="' + id + '"]').length;
+  var total = ck.reduce(function(t, c){ return t + num(c.dataset.pay); }, 0);
+  var ids = ck.map(function(c){ return c.dataset.id; });
   confirmDlg('Ghi nhận đối tác đã trả',
-    'Ghi nhận đã thu <b>' + money(total) + '</b> cho <b>' + n + ' công trình</b> trong file, ngày <b>' + vn(date) + '</b>?<br>'
-    + '<span class="hint">Mỗi công trình được thêm một lần tạm ứng đúng bằng số "Còn lại" trong file.</span>',
+    'Ghi nhận đã thu <b>' + money(total) + '</b> cho <b>' + ck.length + ' công trình</b>, ngày <b>' + vn(date) + '</b>?<br>'
+    + (ck.length < all ? '<span class="hint">Còn <b>' + (all - ck.length) + ' công trình</b> chưa trả — vẫn giữ trong file để lần sau ghi tiếp.</span>'
+                       : '<span class="hint">Mỗi công trình được thêm một lần tạm ứng đúng bằng số "Còn lại" trong file.</span>'),
     function(){
-      call('apiPayDebtExport', [id, date]).then(function(r){
+      call('apiPayDebtExport', [id, date, ids]).then(function(r){
         closeDlg(); closeDlg();
         return reloadAll().then(function(){
-          toast('Đã ghi nhận thu ' + money(r.total) + ' cho ' + r.count + ' công trình.', 'ok');
+          toast('Đã ghi nhận thu ' + money(r.total) + ' cho ' + r.count + ' công trình'
+            + (r.left ? ' — file còn ' + r.left + ' công trình chưa trả.' : '.'), 'ok');
+          if (r.left) payByExportDlg();
         });
       }).catch(fail);
     }, 'success', true);
