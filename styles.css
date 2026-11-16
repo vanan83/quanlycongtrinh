@@ -811,3 +811,8 @@ details.hs-sect[open] > summary h4::after{content:' ▾'}
 .rs-item:first-child{border-top:0}
 .rs-item b{color:var(--navy)}
 .rs-item small{display:block;color:#7A8BA3;font-size:11.5px}
+
+/* Khung con trong Thiết lập (Đổi mật khẩu, Tài khoản nhân viên, Sao lưu…): xanh nhạt hơn thanh tiêu đề chính một bậc */
+.panel .sect > h4{background:linear-gradient(100deg,#3A78C9 0%,#5B95DB 100%);color:#fff;
+  border-bottom:2px solid var(--gold);letter-spacing:.6px}
+.panel .sect > h4::before{background:var(--gold)}
