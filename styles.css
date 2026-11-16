@@ -785,3 +785,12 @@ details.hs-sect[open] > summary h4::after{content:' ▾'}
 .dlg .pb-amtin.short{background:#FFF3DC !important;border-color:#F0B44A !important;color:#9A5B00}
 .dlg .pb-amtin:disabled{opacity:.45}
 .pb-before{display:block;color:#0F7A47;font-size:11.5px;font-weight:600;text-decoration:none}
+
+/* Điện thoại: bảng "Công trình gần đây" (phải kéo ngang) xuống cuối trang Tổng quan */
+@media (max-width:900px){
+  #page-dashboard.on{display:flex;flex-direction:column}
+  #page-dashboard > *{min-width:0}
+  #page-dashboard .dash-top{display:contents}
+  #page-dashboard .dash-top > .panel{margin-bottom:14px}
+  #page-dashboard .dash-recent{order:99;margin:14px 0 0}
+}
