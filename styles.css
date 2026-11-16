@@ -780,3 +780,8 @@ details.hs-sect[open] > summary h4::after{content:' ▾'}
 .pb-all{display:flex;gap:5px;align-items:center;cursor:pointer;text-transform:none}
 .pb-tbl tr.pb-paid td{color:#7A8BA3;text-decoration:line-through}
 .pb-tbl tr.pb-paid td.pb-ck{text-decoration:none}
+
+.pb-amtin{width:130px;text-align:right;font-weight:700;padding:5px 8px;margin:0;border:1px solid #BFD3EE;border-radius:7px}
+.dlg .pb-amtin.short{background:#FFF3DC !important;border-color:#F0B44A !important;color:#9A5B00}
+.dlg .pb-amtin:disabled{opacity:.45}
+.pb-before{display:block;color:#0F7A47;font-size:11.5px;font-weight:600;text-decoration:none}
