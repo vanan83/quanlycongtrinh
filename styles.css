@@ -836,3 +836,8 @@ details.hs-sect[open] > summary h4::after{content:' ▾'}
 .panel .sect > h4::before{background:var(--gold)}
 
 .fl-exp{margin-top:10px;padding:10px 12px;border-radius:10px;background:#ECFDF3;border:1px solid #A7E3C3;color:#0F5132;font-size:13px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+/* Nút phụ ở chân hộp thoại (Hủy, Xuất Excel, Đơn giá / tạm ứng…): nền xanh nhạt hơn nút chính một bậc */
+.dlg .foot .btn:not(.primary):not(.success):not(.danger){background:linear-gradient(180deg,#6FA3E3,#4A86D1);
+  border-color:#3F7BC6;color:#fff;box-shadow:0 3px 10px rgba(23,103,216,.18)}
+.dlg .foot .btn:not(.primary):not(.success):not(.danger):hover{background:linear-gradient(180deg,#4A86D1,#2F6DBE);border-color:#2F6DBE;color:#fff}
