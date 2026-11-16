@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.16-10';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.16-11';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -1294,7 +1294,8 @@ function flExport(work){
   if (!PD || !PD.id) return toast('Lưu công trình trước rồi mới xuất được.', 'err');
   var rows = work.filter(function(f){ return num(f.area) > 0 || String(f.name || '').trim(); });
   if (!rows.length) return toast('Bảng tầng đang trống.', 'err');
-  call('apiExportFloors', [PD.id, rows]).then(function(r){
+  var ps = document.getElementById('wk_partner') || document.getElementById('pj_partner');   // đối tác đang chọn (có thể chưa lưu)
+  call('apiExportFloors', [PD.id, rows, ps ? { partner_id: ps.value || '' } : {}]).then(function(r){
     document.getElementById('fl_export').innerHTML = '<div class="fl-exp">✅ Đã tạo file <b>' + esc(r.name) + '</b> ('
       + r.count + ' tầng) trên Google Drive của bạn. '
       + '<a class="btn sm" href="' + esc(r.xlsxUrl) + '" target="_blank" rel="noopener">⬇ Tải bản .xlsx</a> '
