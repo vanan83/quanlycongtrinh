@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.16-07';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.16-08';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -117,7 +117,7 @@ function esc(s){
  */
 function call(fn, args){
   if (!SERVER_ON) return Promise.reject(new Error('Chưa cấu hình máy chủ: dán link /exec vào js/config.js.'));
-  document.getElementById('busy').classList.add('on');
+  var stopBusy = busyStart();
   var ctl = typeof AbortController === 'function' ? new AbortController() : null;
   var timer = setTimeout(function(){ if (ctl) ctl.abort(); }, 60000);
   var body = JSON.stringify({ fn: fn, args: args || [], token: fn === 'apiLogin' ? '' : TOKEN });
@@ -144,7 +144,53 @@ function call(fn, args){
       if (isAuthErr(e)) showLogin(errText(e));
       throw e;
     });
-  function done(){ clearTimeout(timer); document.getElementById('busy').classList.remove('on'); }
+  function done(){ clearTimeout(timer); stopBusy(); }
+}
+
+/**
+ * Báo "đang chờ máy chủ" cho đỡ sốt ruột:
+ *   - thanh chạy trên đầu trang (chạy dần tới ~90%, xong thì chạy hết 100% rồi ẩn);
+ *   - nút vừa bấm hiện vòng quay và tạm khóa (khỏi bấm lặp);
+ *   - chờ quá 0,8 giây: hiện ô "⏳ Đang xử lý… N giây" ở dưới màn hình.
+ */
+var BUSY = { n: 0, t0: 0, tick: null, pill: null };
+function busyStart(){
+  var btn = document.activeElement;
+  if (!(btn && (btn.tagName === 'BUTTON' || /btn/.test(btn.className || '')) && !btn.disabled)) btn = null;
+  if (btn){ btn.classList.add('loading'); btn.disabled = true; }
+  if (BUSY.n++ === 0){
+    BUSY.t0 = Date.now();
+    var bar = document.getElementById('busy');
+    bar.classList.remove('done'); bar.style.width = '0'; void bar.offsetWidth; bar.classList.add('on');
+    var w = 8; bar.style.width = w + '%';
+    clearInterval(BUSY.grow);
+    BUSY.grow = setInterval(function(){ w += (92 - w) * 0.07; bar.style.width = w.toFixed(1) + '%'; }, 300);   // chạy dần tới ~92%
+    document.body.classList.add('is-busy');
+    BUSY.pill = setTimeout(function(){
+      var p = document.getElementById('busyPill'), t = document.getElementById('busyText');
+      var upd = function(){
+        var s = Math.round((Date.now() - BUSY.t0) / 1000);
+        t.textContent = 'Đang xử lý…' + (s >= 2 ? ' ' + s + ' giây' : '') + (s >= 15 ? ' (máy chủ đang làm việc nặng, vui lòng đợi)' : '');
+      };
+      upd(); p.classList.add('on');
+      BUSY.tick = setInterval(upd, 1000);
+    }, 800);
+  }
+  var stopped = false;
+  return function(){
+    if (stopped) return; stopped = true;
+    if (btn){ btn.classList.remove('loading'); btn.disabled = false; }
+    if (--BUSY.n > 0) return;
+    BUSY.n = 0;
+    clearTimeout(BUSY.pill); clearInterval(BUSY.tick);
+    document.getElementById('busyPill').classList.remove('on');
+    document.body.classList.remove('is-busy');
+    var bar = document.getElementById('busy');
+    clearInterval(BUSY.grow);
+    bar.style.width = '100%';                       // xong: chạy hết 100% rồi mờ đi
+    bar.classList.add('done');
+    setTimeout(function(){ if (!BUSY.n){ bar.classList.remove('on', 'done'); bar.style.width = '0'; } }, 600);
+  };
 }
 
 function errText(e){
