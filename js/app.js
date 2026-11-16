@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.16-09';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.16-10';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -1289,6 +1289,19 @@ function advDlg(i){
   }, 60);
 }
 
+/** Xuất bảng tầng đang mở ra file Excel (cùng kiểu file công nợ) để gửi khách hàng. */
+function flExport(work){
+  if (!PD || !PD.id) return toast('Lưu công trình trước rồi mới xuất được.', 'err');
+  var rows = work.filter(function(f){ return num(f.area) > 0 || String(f.name || '').trim(); });
+  if (!rows.length) return toast('Bảng tầng đang trống.', 'err');
+  call('apiExportFloors', [PD.id, rows]).then(function(r){
+    document.getElementById('fl_export').innerHTML = '<div class="fl-exp">✅ Đã tạo file <b>' + esc(r.name) + '</b> ('
+      + r.count + ' tầng) trên Google Drive của bạn. '
+      + '<a class="btn sm" href="' + esc(r.xlsxUrl) + '" target="_blank" rel="noopener">⬇ Tải bản .xlsx</a> '
+      + '<a class="btn sm primary" href="' + esc(r.url) + '" target="_blank" rel="noopener">Mở trên Google Sheets</a></div>';
+  }).catch(fail);
+}
+
 function pjOpenFloors(){
   var work = PD.floors.map(function(f){ return Object.assign({}, f); });
   if (!work.length) work.push(newFloor(1));
@@ -1299,8 +1312,10 @@ function pjOpenFloors(){
     body: '<div id="fl_box"></div>'
         + '<div style="display:flex;gap:8px;margin-top:10px"><button class="btn sm primary" '
         + 'onclick="flAdd()">+ Thêm tầng</button></div>'
-        + '<div class="sumline"><span>Tổng diện tích:</span> <b id="fl_total">0</b> <span>m²</span></div>',
+        + '<div class="sumline"><span>Tổng diện tích:</span> <b id="fl_total">0</b> <span>m²</span></div>'
+        + '<div id="fl_export"></div>',
     buttons: [
+      { label: '⬇ Xuất Excel gửi khách', act: function(){ flExport(work); } },
       { label: 'Hủy', act: closeDlg },
       { label: 'Dùng tổng diện tích này', cls: 'primary', act: function(){
           PD.floors = work.filter(function(f){ return num(f.area) > 0 || f.name; });
