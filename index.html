@@ -236,9 +236,10 @@
         </div>
       </div>
       <div class="toolbar">
-        <label class="admin-only" style="font-weight:600">Nhân viên:</label>
-        <select id="tsUser" class="admin-only" style="width:auto;min-width:220px" onchange="tsPickUser(this.value)"></select>
-        <span id="tsWho" class="not-admin-only" style="font-weight:600"></span>
+        <label id="tsUserLb" style="font-weight:600">Nhân viên:</label>
+        <select id="tsUser" style="width:auto;min-width:220px" onchange="tsPickUser(this.value)"></select>
+        <span id="tsWho" style="font-weight:600"></span>
+        <span id="tsView" class="chip amber hidden"></span>
         <div class="grow"></div>
         <span id="tsLegend" class="ts-legend"></span>
         <span id="tsLock"></span>
@@ -453,6 +454,12 @@
               <button class="btn primary" onclick="userDlg(null)">+ Thêm tài khoản</button>
               <button class="btn" onclick="editUser()">Sửa</button>
               <button class="btn danger" onclick="delUser()">Xóa</button>
+            </div>
+            <div class="tsshare">
+              <b>👀 Nhân viên được xem chấm công / tăng ca của nhau</b>
+              <p class="hint" style="margin:4px 0 8px">Nhân viên vào Chấm công / Tăng ca chọn được tên đồng nghiệp để xem (chỉ xem, không sửa).
+                Tích = đồng nghiệp xem được người này; bỏ tích = ẩn (vd tài khoản quản lý).</p>
+              <div id="tsShareBox" class="tsshare-list"></div>
             </div>
           </div>
         </div>

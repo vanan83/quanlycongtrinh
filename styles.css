@@ -794,3 +794,11 @@ details.hs-sect[open] > summary h4::after{content:' ▾'}
   #page-dashboard .dash-top > .panel{margin-bottom:14px}
   #page-dashboard .dash-recent{order:99;margin:14px 0 0}
 }
+
+/* Thiết lập: ai được đồng nghiệp xem chấm công */
+.tsshare{margin:14px 0 4px;padding:12px 14px;border-radius:10px;background:#EEF6FF;border:1px solid #CFE0F5}
+.tsshare > b{color:var(--navy);font-size:13.5px}
+.tsshare-list{display:flex;flex-wrap:wrap;gap:8px 18px}
+.tsshare-it{display:flex;align-items:center;gap:6px;font-size:13.5px;cursor:pointer;user-select:none}
+.tsshare-it input{width:17px;height:17px;margin:0;accent-color:var(--blue)}
+#tsView.hidden{display:none}

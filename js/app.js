@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.16-04';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.16-05';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -2252,8 +2252,10 @@ function loadSheet(){
   document.getElementById('tsMonthLb').textContent = monthLabel(TS.month);
   return call('apiTimesheetLoad', [TS.month]).then(function(d){
     TS.data = d;
-    if (!isAdmin()) TS.uid = d.myUid;
-    else {
+    if (!isAdmin()){
+      var mine = d.staff.map(function(u){ return String(u.id); });
+      if (TS.uid === null || mine.indexOf(String(TS.uid)) < 0) TS.uid = d.myUid;
+    } else {
       var ids = d.staff.map(function(u){ return String(u.id); });
       if (TS.uid === null || ids.indexOf(String(TS.uid)) < 0) TS.uid = d.staff.length ? d.staff[0].id : null;
     }
@@ -2276,7 +2278,9 @@ function renderSheet(){
   document.getElementById('tsSub').textContent = off
     ? 'Nghỉ buổi nào thì bấm vào ô buổi đó để chấm OFF (ngày nào trong tháng cũng chấm được). Lương chỉ trừ số buổi OFF.'
     : 'Bấm ô Sáng / Chiều / Tối vào buổi đã tăng ca. Mỗi ô là một buổi.';
-  document.getElementById('tsSumTitle').textContent = isAdmin()
+  var others = !isAdmin() && d.staff.length > 1;          // nhân viên được xem đồng nghiệp
+  var viewOnly = !isAdmin() && String(TS.uid) !== String(d.myUid);
+  document.getElementById('tsSumTitle').textContent = isAdmin() || others
     ? (off ? 'Số buổi OFF trong tháng' : 'Số buổi tăng ca trong tháng') : 'Tháng này của bạn';
   document.getElementById('tsLegend').innerHTML = off
     ? '<b class="slot off on mini">✕</b> OFF (nghỉ)'
@@ -2286,16 +2290,23 @@ function renderSheet(){
   document.getElementById('tsLock').innerHTML = d.locked
     ? '<span class="chip red">🔒 Đã chốt lương — không sửa được</span>' : '';
 
-  // chọn nhân viên (quản lý)
-  if (isAdmin()){
-    var sel = document.getElementById('tsUser');
+  // chọn nhân viên (quản lý; nhân viên thì xem được đồng nghiệp nếu quản lý cho phép)
+  var sel = document.getElementById('tsUser');
+  var showSel = isAdmin() || others;
+  sel.style.display = showSel ? '' : 'none';
+  document.getElementById('tsUserLb').style.display = showSel ? '' : 'none';
+  document.getElementById('tsWho').style.display = showSel ? 'none' : '';
+  if (showSel){
     sel.innerHTML = d.staff.length ? d.staff.map(function(u){
       return '<option value="' + u.id + '"' + (String(u.id) === String(TS.uid) ? ' selected' : '') + '>'
-        + esc(u.name) + (u.active ? '' : ' (đã khóa)') + '</option>';
+        + esc(u.name) + (String(u.id) === String(d.myUid) ? ' (bạn)' : '') + (u.active ? '' : ' (đã khóa)') + '</option>';
     }).join('') : '<option value="">— Chưa có tài khoản nhân viên —</option>';
   } else {
     document.getElementById('tsWho').textContent = '👤 ' + ME.name;
   }
+  var tv = document.getElementById('tsView');
+  tv.classList.toggle('hidden', !viewOnly);
+  tv.textContent = viewOnly ? '👀 Đang xem — chỉ xem, không sửa được' : '';
 
   // lịch tháng
   var y = Number(TS.month.slice(0, 4)), m = Number(TS.month.slice(5, 7));
@@ -2303,7 +2314,7 @@ function renderSheet(){
   var lead = (new Date(y, m - 1, 1).getDay() + 6) % 7;     // thứ 2 đầu tuần
   var mine = {};
   tsEntries(TS.uid).forEach(function(r){ mine[r.date + '|' + r.session] = 1; });
-  var can = TS.uid !== null && !d.locked;
+  var can = TS.uid !== null && !d.locked && !viewOnly;
   var h = '<div class="tsgrid">' + WD.map(function(w, i){
     return '<div class="tshead' + (i === 6 ? ' sun' : i === 5 ? ' sat' : '') + '">' + w + '</div>';
   }).join('');
@@ -2330,12 +2341,18 @@ function renderSheet(){
 
   // tổng hợp
   var sum = document.getElementById('tsSum');
-  if (isAdmin()){
+  if (isAdmin() || others){
     var rows = d.staff.map(function(u){ return { u: u, n: tsEntries(u.id).length }; });
+    var sel2 = tsEntries(TS.uid).sort(function(a, b){ return (a.date + a.session).localeCompare(b.date + b.session); });
     sum.innerHTML = rows.length ? '<table class="tssum"><tbody>' + rows.map(function(r){
       return '<tr class="' + (String(r.u.id) === String(TS.uid) ? 'sel' : '') + '" onclick="tsPickUser(' + r.u.id + ')">'
-        + '<td>' + esc(r.u.name) + '</td><td class="num"><b>' + r.n + '</b> buổi</td></tr>';
-    }).join('') + '</tbody></table>' + '<p class="hint">Bấm tên để xem / chấm cho người đó.</p>'
+        + '<td>' + esc(r.u.name) + (!isAdmin() && String(r.u.id) === String(d.myUid) ? ' <span class="chip blue">bạn</span>' : '') + '</td>'
+        + '<td class="num"><b>' + r.n + '</b> buổi</td></tr>';
+    }).join('') + '</tbody></table>'
+      + '<p class="hint">' + (isAdmin() ? 'Bấm tên để xem / chấm cho người đó.' : 'Bấm tên để xem của đồng nghiệp (chỉ xem). Bạn chỉ chấm được cho mình.') + '</p>'
+      + (!isAdmin() && sel2.length ? '<ul class="tslist">' + sel2.map(function(r){
+          return '<li>' + vn(r.date) + ' — ' + SESS_LB[r.session] + '</li>';
+        }).join('') + '</ul>' : '')
       : '<p class="hint">Chưa có tài khoản nhân viên. Tạo ở Thiết lập › Tài khoản nhân viên.</p>';
   } else {
     var list = tsEntries(TS.uid).sort(function(a, b){ return (a.date + a.session).localeCompare(b.date + b.session); });
@@ -2942,6 +2959,29 @@ function renderUsers(){
       + '<button class="btn sm" onclick="resetUser(' + u.id + ')">Đặt lại MK</button></td></tr>';
   }).join('') : '<tr><td colspan="5" class="empty">Chưa có tài khoản nhân viên nào.</td></tr>';
   if (SEL.tblUsers) pick('tblUsers', SEL.tblUsers);
+  renderTsShare();
+}
+
+/** Danh sách tick: ai được đồng nghiệp xem chấm công / tăng ca. */
+function renderTsShare(){
+  var box = document.getElementById('tsShareBox');
+  if (!box) return;
+  var hidden = String((DB.settings || {}).ts_hidden || '').split(',').filter(String);
+  var rows = (DB.users || []).filter(function(u){ return u.active !== '0'; });
+  box.innerHTML = rows.length ? rows.map(function(u){
+    return '<label class="tsshare-it"><input type="checkbox" value="' + u.id + '"'
+      + (hidden.indexOf(String(u.id)) < 0 ? ' checked' : '') + ' onchange="saveTsShare()"> '
+      + esc(u.display_name || u.username) + (u.role === 'admin' ? ' <span class="chip blue">QL</span>' : '') + '</label>';
+  }).join('') : '<p class="hint" style="margin:0">Chưa có tài khoản nhân viên.</p>';
+}
+function saveTsShare(){
+  var hidden = [];
+  document.querySelectorAll('#tsShareBox input[type=checkbox]').forEach(function(c){ if (!c.checked) hidden.push(c.value); });
+  call('apiSaveTsHidden', [hidden]).then(function(v){
+    DB.settings = DB.settings || {};
+    DB.settings.ts_hidden = v;
+    toast(hidden.length ? 'Đã lưu — ẩn ' + hidden.length + ' người khỏi mục xem chéo.' : 'Đã lưu — mọi người xem được của nhau.', 'ok');
+  }).catch(fail);
 }
 
 function editUser(id){
