@@ -15,7 +15,7 @@ var AREA_ROWS = [];               // bảng tính diện tích dùng riêng
 var TOKEN = '';                   // mã phiên đăng nhập — gửi kèm mọi lệnh gọi server
 var ME = null;                    // { username, name, title, role: 'admin'|'staff', owner }
 var ARISING_OK = {};              // { project_id: tổng phát sinh đã duyệt }
-var VERSION = '2026.11.16-05';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
+var VERSION = '2026.11.16-06';     // đặt trùng CACHE trong sw.js và APP_VER trong Code.gs
 var SERVER_ON = typeof APP_URL === 'string' && /^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)
                 && APP_URL.indexOf('DAN_MA') < 0;
 // Ghi nhớ đăng nhập 60 ngày trên máy này (token do máy chủ ký, hết hạn tự đăng nhập lại).
@@ -2785,7 +2785,7 @@ function renderSettings(){
   document.getElementById('st_role').value = s.user_role || '';
   document.getElementById('st_user').value = s.auth_username || '';
   document.getElementById('st_org').value = s.export_org || '';
-  document.getElementById('st_dataLink').href = DB.dataUrl || '#';
+  var dl = document.getElementById('st_dataLink'); if (dl) dl.href = DB.dataUrl || '#';
   document.getElementById('st_daily').textContent =
     s.daily_backup === '1' ? '⏸ Tắt sao lưu hằng ngày' : '⏰ Bật sao lưu hằng ngày';
 }
@@ -2823,6 +2823,41 @@ function doBackup(){
   call('apiBackup').then(function(r){
     toast('Đã sao lưu: ' + r.name, 'ok');
   }).catch(fail);
+}
+
+/** Chọn 1 trong các bản sao lưu để khôi phục. */
+function restoreDlg(){
+  toast('Đang mở thư mục sao lưu…');
+  call('apiListBackups', []).then(function(list){
+    openDlg({
+      title: '♻ Khôi phục từ bản sao lưu',
+      body: '<p class="hint" style="margin-top:0">Chọn bản muốn lấy lại. Trước khi khôi phục, app <b>tự sao lưu dữ liệu hiện tại</b> '
+          + '(bản ghi "trước khi khôi phục") — lỡ chọn nhầm thì khôi phục lại bản đó. Mật khẩu và thiết lập giữ nguyên.</p>'
+          + (list.length ? '<div class="rs-list">' + list.map(function(b, i){
+              return '<div class="rs-item"><div><b>' + fmtStamp(b.when) + '</b>'
+                + (i === 0 ? ' <span class="chip green">mới nhất</span>' : '')
+                + (b.before_restore ? ' <span class="chip amber">trước khi khôi phục</span>' : '')
+                + '<small>' + esc(b.name) + '</small></div>'
+                + '<button class="btn sm warn-btn" onclick="restoreDo(\'' + b.id + '\',\'' + esc(b.when) + '\')">Khôi phục bản này</button></div>';
+            }).join('') + '</div>'
+            : '<p class="hint">Chưa có bản sao lưu nào. Bấm <b>⬆ Sao lưu ngay</b> hoặc bật sao lưu hằng ngày.</p>'),
+      buttons: [{ label: 'Đóng', act: closeDlg }],
+    });
+  }).catch(fail);
+}
+
+function restoreDo(id, when){
+  confirmDlg('Khôi phục dữ liệu',
+    'Đưa toàn bộ dữ liệu (công trình, đối tác, tạm ứng, phát sinh, chấm công, bảng lương…) về như lúc <b>' + fmtStamp(when) + '</b>?<br>'
+    + '<span class="hint">Mọi thay đổi sau thời điểm đó sẽ mất khỏi bảng chính — nhưng dữ liệu hiện tại được sao lưu lại trước, '
+    + 'nên vẫn lấy lại được.</span>',
+    function(){
+      toast('Đang khôi phục… (có thể mất vài chục giây)');
+      call('apiRestoreBackup', [id]).then(function(r){
+        closeDlg(); closeDlg();
+        return reloadAll().then(function(){ toast('Đã khôi phục dữ liệu về lúc ' + fmtStamp(r.from) + '.', 'ok'); });
+      }).catch(fail);
+    }, 'danger', true);
 }
 
 function toggleDailyBackup(){
