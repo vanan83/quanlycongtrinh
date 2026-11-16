@@ -841,3 +841,16 @@ details.hs-sect[open] > summary h4::after{content:' ▾'}
 .dlg .foot .btn:not(.primary):not(.success):not(.danger){background:linear-gradient(180deg,#6FA3E3,#4A86D1);
   border-color:#3F7BC6;color:#fff;box-shadow:0 3px 10px rgba(23,103,216,.18)}
 .dlg .foot .btn:not(.primary):not(.success):not(.danger):hover{background:linear-gradient(180deg,#4A86D1,#2F6DBE);border-color:#2F6DBE;color:#fff}
+
+/* Mọi nút thường (trước đây nền trắng): nền xanh nhạt chữ trắng như nút phụ ở hộp thoại.
+   Giữ nguyên: nút chính (xanh đậm), Thành công (xanh lá), Xóa (đỏ), Phát sinh (tím), nút chữ (ghost), Copy, Khôi phục. */
+.btn:not(.primary):not(.success):not(.danger):not(.ps):not(.violet-btn):not(.warn-btn):not(.ghost):not(.cpy){
+  background:linear-gradient(180deg,#6FA3E3,#4A86D1);border-color:#3F7BC6;color:#fff;box-shadow:0 3px 10px rgba(23,103,216,.18)}
+.btn:not(.primary):not(.success):not(.danger):not(.ps):not(.violet-btn):not(.warn-btn):not(.ghost):not(.cpy):hover{
+  background:linear-gradient(180deg,#4A86D1,#2F6DBE);border-color:#2F6DBE;color:#fff}
+.btn.loading::before{border-color:rgba(255,255,255,.45) !important;border-top-color:#fff !important}
+.btn.ghost.loading::before{border-color:rgba(23,103,216,.25) !important;border-top-color:var(--blue) !important}
+/* Nút Xóa thường: nền đỏ nhạt chữ trắng (nút Xóa đậm .solid giữ nguyên) */
+.btn.danger:not(.solid):not(.ghost){background:linear-gradient(180deg,#EF7D81,#E0484E);border-color:#D23C42;color:#fff;
+  box-shadow:0 3px 10px rgba(194,48,59,.18)}
+.btn.danger:not(.solid):not(.ghost):hover{background:linear-gradient(180deg,#E0484E,#C2303B);border-color:#C2303B;color:#fff}
