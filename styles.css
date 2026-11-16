@@ -854,3 +854,10 @@ details.hs-sect[open] > summary h4::after{content:' ▾'}
 .btn.danger:not(.solid):not(.ghost){background:linear-gradient(180deg,#EF7D81,#E0484E);border-color:#D23C42;color:#fff;
   box-shadow:0 3px 10px rgba(194,48,59,.18)}
 .btn.danger:not(.solid):not(.ghost):hover{background:linear-gradient(180deg,#E0484E,#C2303B);border-color:#C2303B;color:#fff}
+
+/* Điện thoại: "Công trình gần đây" chỉ hiện Tên công trình + Đối tác, không phải kéo ngang */
+@media (max-width:700px){
+  #tblRecent th:nth-child(n+3),#tblRecent td:nth-child(n+3){display:none}
+  #tblRecent td:first-child{min-width:0;white-space:normal;line-height:1.35}
+  #tblRecent th:nth-child(2),#tblRecent td:nth-child(2){width:38%;white-space:normal}
+}
